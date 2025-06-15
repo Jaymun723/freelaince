@@ -1,21 +1,28 @@
 """
-OfferFinder - Web search and AI-powered offer discovery system
+OfferFinder - Web search and AI-powered offer discovery system using smolagents
 """
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Protocol
+from typing import Dict, List, Optional, Any, Union
 from urllib.parse import urlparse
 import re
 from .standard_offer import StandardOffer
 from .photography_offer import PhotographyOffer
 
-
-# Protocol for LLM interface - allows any LLM implementation
-class LLMInterface(Protocol):
-    def generate_response(self, prompt: str) -> str:
-        """Generate a response from the LLM given a prompt."""
-        pass
+# Import smolagents for LLM functionality
+try:
+    from smolagents import CodeAgent, HfApiModel
+    SMOLAGENTS_AVAILABLE = True
+except ImportError:
+    SMOLAGENTS_AVAILABLE = False
+    # Fallback protocol for compatibility
+    from typing import Protocol
+    
+    class LLMInterface(Protocol):
+        def generate_response(self, prompt: str) -> str:
+            """Generate a response from the LLM given a prompt."""
+            pass
 
 
 class OfferFinder:
@@ -160,14 +167,35 @@ Use the same JSON format as the free search template.
         'additional_services': []
     }
 
-    def __init__(self, llm_instance: LLMInterface):
+    def __init__(self, llm_instance: Optional[Union["CodeAgent", "LLMInterface"]] = None):
         """
-        Initialize OfferFinder with an external LLM instance.
+        Initialize OfferFinder with an LLM instance.
         
         Args:
-            llm_instance: An object implementing the LLMInterface protocol
+            llm_instance: Either a smolagents CodeAgent or an object implementing LLMInterface.
+                         If None, will try to create a default smolagents instance.
         """
-        self.llm = llm_instance
+        if llm_instance is None and SMOLAGENTS_AVAILABLE:
+            # Create default smolagents instance
+            try:
+                # Use a default HuggingFace model
+                model = HfApiModel("microsoft/DialoGPT-medium")
+                self.llm = CodeAgent(tools=[], model=model)
+                self.is_smolagents = True
+            except Exception as e:
+                self.logger = logging.getLogger(__name__)
+                self.logger.warning(f"Failed to create default smolagents instance: {e}")
+                self.llm = None
+                self.is_smolagents = False
+        elif SMOLAGENTS_AVAILABLE and hasattr(llm_instance, 'run'):
+            # smolagents CodeAgent
+            self.llm = llm_instance
+            self.is_smolagents = True
+        else:
+            # Standard LLM interface
+            self.llm = llm_instance
+            self.is_smolagents = False
+        
         self.logger = logging.getLogger(__name__)
         self._setup_logging()
 
@@ -181,6 +209,37 @@ Use the same JSON format as the free search template.
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
+
+    def _generate_llm_response(self, prompt: str) -> str:
+        """
+        Generate a response from the LLM using either smolagents or standard interface.
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            
+        Returns:
+            The LLM's response as a string
+        """
+        if self.llm is None:
+            raise ValueError("No LLM instance available")
+        
+        try:
+            if self.is_smolagents:
+                # Use smolagents CodeAgent interface
+                response = self.llm.run(prompt)
+                # Extract text response from smolagents result
+                if hasattr(response, 'content'):
+                    return response.content
+                elif isinstance(response, str):
+                    return response
+                else:
+                    return str(response)
+            else:
+                # Use standard interface
+                return self.llm.generate_response(prompt)
+        except Exception as e:
+            self.logger.error(f"Error generating LLM response: {e}")
+            return ""
 
     def free_search(
         self, 
@@ -213,7 +272,7 @@ Use the same JSON format as the free search template.
             )
             
             # Get LLM response
-            response = self.llm.generate_response(prompt)
+            response = self._generate_llm_response(prompt)
             
             # Parse response and create offers
             offers = self._parse_llm_response(response, known_offers)
@@ -259,7 +318,7 @@ Use the same JSON format as the free search template.
             )
             
             # Get LLM response
-            response = self.llm.generate_response(prompt)
+            response = self._generate_llm_response(prompt)
             
             # Parse response and create offers
             offers = self._parse_llm_response(response, known_offers)
