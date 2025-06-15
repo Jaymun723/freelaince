@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const connectionStatus = document.getElementById('connectionStatus');
   const settingsBtn = document.getElementById('settingsBtn');
   const offersBtn = document.getElementById('offersBtn');
+  const calendarBtn = document.getElementById('calendarBtn');
 
   let isConnected = false;
   let messageHistory = [];
@@ -51,6 +52,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Offers button
     offersBtn.addEventListener('click', openOffersPage);
+
+    // Calendar button
+    calendarBtn.addEventListener('click', openCalendarPage);
 
     // Listen for messages from background script
     chrome.runtime.onMessage.addListener(handleBackgroundMessage);
@@ -254,6 +258,12 @@ document.addEventListener('DOMContentLoaded', function() {
   function openOffersPage() {
     chrome.tabs.create({
       url: chrome.runtime.getURL('offers.html')
+    });
+  }
+
+  function openCalendarPage() {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('calendar.html')
     });
   }
 
