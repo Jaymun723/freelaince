@@ -14,14 +14,6 @@
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["styles.css"],
-      "run_at": "document_end"
-    }
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Freelaince"
@@ -33,7 +25,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["offers.html", "offers.js"],
+      "resources": ["offers.html", "offers.js", "calendar.html", "calendar.js"],
       "matches": ["<all_urls>"]
     }
   ]

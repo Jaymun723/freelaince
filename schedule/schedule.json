@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Team Meeting",
+    "start_time": "2025-06-15T17:00:00",
+    "end_time": "2025-06-15T18:00:00",
+    "description": "Regular team meeting",
+    "location": "Conference Room",
+    "priority": 3
+  },
+  {
+    "title": "New Team Meeting",
+    "start_time": "2025-06-16T14:30:00",
+    "end_time": "2025-06-16T16:00:00",
+    "description": "Newly scheduled team meeting (shortened)",
+    "location": "Conference Room",
+    "priority": 3
+  },
+  {
+    "title": "Soccer Game",
+    "start_time": "2025-06-16T16:00:00",
+    "end_time": "2025-06-16T17:00:00",
+    "description": "Playing soccer",
+    "location": "Soccer Field",
+    "priority": 4
+  }
+]

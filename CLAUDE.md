@@ -4,99 +4,215 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a multi-component freelance assistance platform with three distinct subsystems:
+**Freelaince** is an AI-powered platform that helps freelancers in their journey by combining multiple intelligent systems:
 
-1. **Erwan/**: Freelance Offer Manager System - Python package for managing freelance job offers with AI-powered discovery capabilities
-2. **front/**: Chrome Extension with WebSocket Server - AI-powered chat overlay for freelancers with intelligent tab management
-3. **Base_LLM/**: Legacy Claude API Integration - Original anthropic-based conversation system (deprecated in favor of HuggingFace models)
+1. **Browser Extension** (`extension/`): Chrome extension with popup-based chat interface for real-time assistance
+2. **WebSocket Server** (`server/`): Central Python server handling chat, offers, and tab management
+3. **Offer Discovery System** (`Erwan/`): AI-powered job opportunity finder with web search capabilities
+4. **Legacy Extension** (`front/`): Original overlay-based extension (deprecated)
+5. **LLM Orchestration** (`Base_LLM/`): Central intelligence layer coordinating all features (planned)
 
-## Development Commands
-
-### Erwan (Offer Management System)
-```bash
-# Core system demo
-cd Erwan && python3 main.py
-
-# AI discovery demos
-cd Erwan && python3 offer_finder_demo.py
-cd Erwan && python3 smolagents_demo.py
-
-# Module validation
-cd Erwan && python3 -c "from offer_manager import OfferManager, StandardOffer, PhotographyOffer, OfferFinder; print('✓ All modules import successfully')"
-```
-
-### Front (Chrome Extension + Server)
-```bash
-# Server setup and run
-cd front && npm run install-deps
-cd front && npm start
-# Alternative: npm run start-alt
-
-# Extension loading: chrome://extensions/ -> Load unpacked -> select front/ directory
-```
-
-### Base_LLM (Legacy System)
-```bash
-# Requires anthropic API key in key.py
-cd Base_LLM && python3 init.py
-```
+The platform provides a comprehensive solution for freelancers to manage their workflow, discover opportunities, and get intelligent assistance through a seamless browser-based interface.
 
 ## Architecture Overview
 
-### Multi-System Architecture
-The repository contains three independent but related systems that can work together or separately:
+### Current Extension (`extension/`)
+- **Chrome Extension**: Popup-based chat interface (appears in browser action)
+- **WebSocket Communication**: Real-time connection to central server
+- **Offers Management**: Dedicated page for viewing and managing job opportunities
+- **Tab Management**: Can open relevant websites and resources
+- **Persistent Storage**: Conversation history and settings
+- **Modern UI**: Dark mode support with professional styling
 
-- **Erwan/** handles job discovery and management with AI-powered search capabilities
-- **front/** provides real-time chat assistance via Chrome extension with WebSocket communication
-- **Base_LLM/** contains legacy Claude API integration (superseded by HuggingFace implementations)
+**Key Components:**
+- `manifest.json`: Extension configuration and permissions
+- `background.js`: WebSocket manager and message routing
+- `popup.html/js`: Main chat interface (popup window)
+- `offers.html/js`: Offers management page with filtering and status updates
 
-### Cross-System Integration Points
+### Legacy Extension (`front/`) - Deprecated
+- **Original implementation**: Chat overlay on webpages
+- **Still functional**: Can be used but not actively maintained
+- **Content Script**: Injected overlay UI (`content.js`)
+- **Server included**: Local Python WebSocket server (`front/server/`)
 
-1. **AI Model Strategy**: Each system uses different AI approaches:
-   - Erwan: smolagents protocol with LLM abstraction
-   - front: Custom server-side response logic with potential LLM integration
-   - Base_LLM: Direct Anthropic Claude API calls
+### Central Server (`server/`)
+- **WebSocket Server**: Handles all extension connections
+- **Chat Processing**: AI responses, navigation requests, freelance advice
+- **Offer Integration**: Connects to Erwan system for job opportunities
+- **Message Storage**: CSV-based conversation logging
+- **Tab Management**: Commands extension to open URLs
 
-2. **Data Persistence**: 
-   - Erwan: Pickle-based offer storage with dual-storage architecture
-   - front: CSV-based conversation history
-   - Base_LLM: Session-only data retention
+### Backend - Offer Discovery (`Erwan/`)
+- **Offer Management**: Core data models for different offer types
+- **AI Discovery**: LLM-powered job opportunity finder
+- **Web Search Integration**: Automated offer discovery from various sources
+- **Data Integrity**: Strict validation and duplicate prevention
+- **Extensible Architecture**: Support for multiple freelance domains
 
-3. **Communication Patterns**:
-   - Erwan: Direct Python package usage
-   - front: WebSocket client-server architecture
-   - Base_LLM: Console-based interaction
+**Key Components:**
+- `offer_manager/`: Core package with data models and management
+- `offer_finder.py`: AI-powered opportunity discovery
+- `photography_offer.py`: Specialized offer type implementation
+- Integration with smolagents for enhanced AI capabilities
 
-### Key Architectural Decisions
+### LLM Orchestration (`Base_LLM/`)
+*[Planned]* Central intelligence layer that will coordinate:
+- Chat responses and user assistance
+- Offer discovery triggers and personalization
+- Cross-system communication and state management
+- Advanced AI features and workflow automation
 
-1. **System Separation**: Each directory is self-contained with its own dependencies and CLAUDE.md documentation
+## Development Setup
 
-2. **AI Integration Flexibility**: Multiple AI backends supported across systems (smolagents, WebSocket server logic, Anthropic API)
+### Quick Start
+```bash
+# Install all dependencies
+npm install  # Frontend dependencies
+cd Erwan && python3 -m pip install -r requirements.txt  # If requirements.txt exists
 
-3. **Data Isolation**: Each system manages its own data persistence without cross-system dependencies
+# Start the central WebSocket server
+cd server && python3.12 server.py
+# Server runs on ws://localhost:8080
 
-## Development Workflow
+# Test offer discovery system
+cd Erwan && python3 main.py
+```
 
-### Working with Multiple Systems
-- Each subdirectory has its own CLAUDE.md with system-specific guidance
-- Dependencies are isolated per system (separate requirements.txt files)
-- Systems can be developed and deployed independently
+### Browser Extension Development
+1. Load extension in Chrome:
+   - Open `chrome://extensions/`
+   - Enable Developer mode
+   - Click "Load unpacked" and select the `extension/` directory
 
-### Adding Cross-System Features
-- Offer data from Erwan can potentially be integrated into front/ chat responses
-- WebSocket server in front/ could leverage Erwan's OfferFinder capabilities
-- Base_LLM utilities might be adapted for other systems
+2. Start the server:
+   - Run `cd server && python3.12 server.py`
+   - Server will start on `ws://localhost:8080`
 
-## Important Implementation Notes
+3. Use the extension:
+   - Click extension icon in browser toolbar
+   - Chat appears as popup window
+   - Click 📋 icon to view offers page
+   - Configure server URL via ⚙️ settings if needed
 
-### System Independence
-Each system in this repository is designed to work independently. When making changes:
-- Check the specific system's CLAUDE.md for detailed guidance
-- Dependencies are scoped to individual systems
-- Configuration files are system-specific
+### Offer Discovery Testing
+```bash
+cd Erwan
 
-### AI Model Evolution
-The repository shows an evolution of AI integration approaches:
-- Base_LLM: Original Anthropic integration (legacy)
-- Erwan: Modern protocol-based LLM abstraction
-- front: Custom server logic with potential for LLM enhancement
+# Core system demo
+python3 main.py
+
+# AI discovery demo
+python3 offer_finder_demo.py
+
+# Advanced AI integration (requires smolagents)
+python3 smolagents_demo.py
+```
+
+## Integration Points
+
+### Extension ⟷ Offer Discovery
+The browser extension can trigger offer discovery and display results through:
+- WebSocket message types for offer requests
+- Tab opening for found opportunities
+- Chat interface for offer management commands
+
+### Future LLM Orchestration
+The planned `Base_LLM` system will:
+- Process all chat interactions from the extension
+- Trigger appropriate offer discovery based on user context
+- Provide personalized recommendations and workflow assistance
+- Coordinate between all system components
+
+## Key Features
+
+### Current Extension
+- **Popup-based chat**: Professional interface in browser action
+- **Offers management**: Dedicated page with filtering, search, and status updates
+- **Real-time WebSocket**: Connection to central server with live status indicator
+- **Smart tab management**: Navigation and website opening capabilities
+- **Conversation history**: Persistent storage and sync across sessions
+- **Freelance-specific guidance**: Advice, tips, and platform recommendations
+- **Modern dark UI**: Professional styling with responsive design
+- **CSP compliant**: No inline JavaScript, proper event handling
+
+### Offer Discovery
+- AI-powered job opportunity finder
+- Multiple offer type support (Photography, etc.)
+- Automatic web search and data extraction
+- Duplicate prevention and data validation
+- Extensible architecture for new domains
+
+### Data Management
+- Dual-storage architecture for performance
+- Strict data integrity rules
+- URL-based deduplication
+- Persistent conversation and offer history
+
+## Message Flow
+
+```
+User ←→ Extension Popup ←→ Background Script ←→ Central WebSocket Server
+                                                            ↓
+                                            [Future] Base_LLM Orchestrator
+                                                            ↓
+                                                   Offer Discovery System (Erwan)
+```
+
+## File Structure
+
+```
+freelaince/
+├── CLAUDE.md                 # This file - global project guidance
+├── README.md                 # Project documentation
+├── extension/                # Current Chrome extension
+│   ├── manifest.json        # Chrome extension config
+│   ├── background.js        # WebSocket manager and message routing
+│   ├── popup.html/js        # Main chat interface (popup)
+│   ├── offers.html/js       # Offers management page
+│   └── icon*.png           # Extension icons
+├── server/                   # Central WebSocket server
+│   ├── server.py            # Main server with chat, offers, tab management
+│   └── conversations.csv    # Message storage
+├── front/                    # Legacy browser extension (deprecated)
+│   ├── CLAUDE.md            # Legacy extension guidance
+│   ├── manifest.json        # Legacy extension config
+│   ├── content.js           # Chat overlay UI (deprecated)
+│   ├── background.js        # Legacy WebSocket manager
+│   ├── server/              # Legacy Python WebSocket server
+│   └── ...
+├── Erwan/                    # Offer discovery system
+│   ├── CLAUDE.md            # Offer system guidance
+│   ├── offer_manager/       # Core package
+│   ├── main.py              # Demo applications
+│   └── ...
+└── Base_LLM/                 # [Planned] LLM orchestration
+    └── CLAUDE.md            # Will contain orchestration guidance
+```
+
+## Development Guidelines
+
+1. **Follow existing patterns**: Each component has established conventions
+2. **Data integrity first**: Never fabricate data, use explicit "NOT_AVAILABLE" markers
+3. **Extensible design**: Support for new offer types and features
+4. **Real-time communication**: Maintain responsive WebSocket connections
+5. **User experience focus**: Keep the interface fast and intuitive
+
+## Testing
+
+### Extension Testing
+- Load unpacked extension from `extension/` folder in Chrome
+- Start server with `cd server && python3.12 server.py`
+- Test WebSocket connectivity (connection status indicator)
+- Verify popup chat functionality and message history
+- Test offers page: filtering, status updates, server sync
+- Check tab opening capabilities
+- Verify conversation persistence and settings storage
+
+### Offer Discovery Testing
+- Run demo scripts to verify functionality
+- Test AI integration with various LLM backends
+- Validate data extraction and deduplication
+- Check offer type extensibility
+
+For detailed component-specific guidance, refer to the CLAUDE.md files in each respective folder.

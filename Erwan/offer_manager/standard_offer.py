@@ -46,7 +46,7 @@ class StandardOffer(ABC):
             source_url: URL where this offer was found (optional)
         """
         self.client_name = self._validate_name(client_name)
-        self.client_contact = self._validate_contact(client_contact)
+        self.client_contact = client_contact
         self.client_company = client_company
         self.job_description = job_description
         self.date_time = date_time
