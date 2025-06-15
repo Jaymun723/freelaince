@@ -8,17 +8,28 @@ class WebSocketManager {
     this.apiUrl = 'ws://localhost:8080';
     
     this.setupMessageListener();
-    this.connect();
+    this.loadSettings();
+  }
+
+  async loadSettings() {
+    try {
+      const result = await chrome.storage.sync.get(['apiUrl']);
+      if (result.apiUrl) {
+        this.apiUrl = result.apiUrl;
+      }
+      this.connect();
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      this.connect();
+    }
   }
 
   connect() {
-    // Don't create new connection if already connected or connecting
     if (this.isConnected || (this.ws && this.ws.readyState === WebSocket.CONNECTING)) {
       console.log('🚫 Already connected or connecting, skipping new connection');
       return;
     }
     
-    // Close existing connection if any
     if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
       console.log('🔄 Closing existing connection before creating new one');
       this.ws.close();
@@ -29,10 +40,13 @@ class WebSocketManager {
       this.ws = new WebSocket(this.apiUrl);
       
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('✅ WebSocket connected');
         this.isConnected = true;
         this.reconnectAttempts = 0;
-        this.notifyContentScript('CONNECTION_STATUS', { connected: true });
+        this.notifyPopup('CONNECTION_STATUS', { connected: true });
+        
+        // Request conversation history
+        this.sendMessage('sync_history', 'sync_history');
       };
 
       this.ws.onmessage = (event) => {
@@ -46,9 +60,9 @@ class WebSocketManager {
       };
 
       this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        console.log('❌ WebSocket disconnected');
         this.isConnected = false;
-        this.notifyContentScript('CONNECTION_STATUS', { connected: false });
+        this.notifyPopup('CONNECTION_STATUS', { connected: false });
         this.attemptReconnect();
       };
 
@@ -64,7 +78,6 @@ class WebSocketManager {
   }
 
   attemptReconnect() {
-    // Don't reconnect if we're already connected or trying to connect
     if (this.isConnected || this.ws?.readyState === WebSocket.CONNECTING) {
       console.log('🚫 Skipping reconnect - already connected or connecting');
       return;
@@ -75,7 +88,7 @@ class WebSocketManager {
       console.log(`🔄 Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       
       setTimeout(() => {
-        if (!this.isConnected) {  // Double check before reconnecting
+        if (!this.isConnected) {
           this.connect();
         }
       }, this.reconnectDelay * this.reconnectAttempts);
@@ -84,18 +97,19 @@ class WebSocketManager {
     }
   }
 
-  sendMessage(message) {
+  sendMessage(message, type = 'user_message') {
     if (this.isConnected && this.ws.readyState === WebSocket.OPEN) {
       const payload = {
-        type: 'user_message',
+        type: type,
         message: message,
         timestamp: Date.now()
       };
       
       this.ws.send(JSON.stringify(payload));
+      console.log('📤 Sent message:', payload);
     } else {
       console.error('WebSocket is not connected');
-      this.notifyContentScript('ERROR', { message: 'Connection lost. Trying to reconnect...' });
+      this.notifyPopup('ERROR', { message: 'Connection lost. Trying to reconnect...' });
     }
   }
 
@@ -103,25 +117,21 @@ class WebSocketManager {
     console.log('🔄 Processing message type:', data.type);
     switch (data.type) {
       case 'bot_response':
-        console.log('📤 Sending bot_response to content script');
-        this.notifyContentScript('NEW_MESSAGE', data.message);
-        break;
       case 'chat_answer':
-        console.log('📤 Sending chat_answer to content script');
-        this.notifyContentScript('NEW_MESSAGE', data.message);
+        console.log('📤 Sending bot response to popup');
+        this.notifyPopup('NEW_MESSAGE', data.message);
         break;
       case 'open_tab':
         console.log('🔗 Opening tab:', data.url);
         this.handleTabOpen(data);
         break;
       case 'conversation_history':
-        console.log('📜 Received conversation history:', data.history.length, 'messages');
-        console.log('📜 History data:', data.history);
-        this.notifyContentScript('CONVERSATION_HISTORY', data.history);
+        console.log('📜 Received conversation history:', data.history?.length || 0, 'messages');
+        this.notifyPopup('CONVERSATION_HISTORY', data.history);
         break;
       case 'system_message':
-        console.log('⚠️  Sending system_message to content script');
-        this.notifyContentScript('SYSTEM_MESSAGE', data.message);
+        console.log('⚠️ Sending system message to popup');
+        this.notifyPopup('SYSTEM_MESSAGE', data.message);
         break;
       default:
         console.error('❌ Unknown message type:', data.type, 'Full data:', data);
@@ -129,100 +139,66 @@ class WebSocketManager {
   }
 
   handleTabOpen(data) {
-    // Get current tab BEFORE opening new one
-    chrome.tabs.query({ active: true, currentWindow: true }, (currentTabs) => {
-      const originalTabId = currentTabs[0]?.id;
+    chrome.tabs.create({ url: data.url }, (newTab) => {
+      console.log('✅ Successfully opened new tab:', data.url);
       
-      // Open new tab with the specified URL
-      console.log('🌐 Creating new tab with URL:', data.url);
-      chrome.tabs.create({ url: data.url }, (newTab) => {
-        console.log('✅ Successfully opened new tab:', data.url);
-        
-        // Send message to the ORIGINAL tab where the chat is open
-        if (data.message && originalTabId) {
-          console.log('📤 Sending tab open message to original tab:', originalTabId);
-          chrome.tabs.sendMessage(originalTabId, {
-            type: 'NEW_MESSAGE',
-            data: data.message
-          }).catch((error) => {
-            console.log('⚠️ Could not send message to original tab:', error);
-          });
-        }
-      });
+      if (data.message) {
+        this.notifyPopup('NEW_MESSAGE', data.message);
+      }
     });
   }
 
-  notifyContentScript(type, data) {
-    console.log('📤 notifyContentScript called with:', type, data);
-    // For conversation history, send to all tabs
-    if (type === 'CONVERSATION_HISTORY') {
-      chrome.tabs.query({}, (tabs) => {
-        console.log(`📤 Sending ${type} to ${tabs.length} tabs`);
-        tabs.forEach((tab, index) => {
-          console.log(`📤 Sending to tab ${index + 1}/${tabs.length} (ID: ${tab.id})`);
-          chrome.tabs.sendMessage(tab.id, {
-            type: type,
-            data: data
-          }).then(() => {
-            console.log(`✅ Successfully sent ${type} to tab ${tab.id}`);
-          }).catch((error) => {
-            console.log(`❌ Failed to send ${type} to tab ${tab.id}:`, error);
-          });
-        });
-      });
-    } else {
-      // For other messages, send to active tab
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          console.log(`📤 Sending ${type} to active tab ${tabs[0].id}`);
-          chrome.tabs.sendMessage(tabs[0].id, {
-            type: type,
-            data: data
-          }).then(() => {
-            console.log(`✅ Successfully sent ${type} to tab ${tabs[0].id}`);
-          }).catch((error) => {
-            console.log(`❌ Failed to send ${type} to tab ${tabs[0].id}:`, error);
-          });
-        }
-      });
-    }
+  notifyPopup(type, data) {
+    console.log('📤 Notifying popup:', type, data);
+    // Since we're working with popup, we need to send to all extension contexts
+    chrome.runtime.sendMessage({
+      type: type,
+      data: data
+    }).catch((error) => {
+      // Popup might be closed, that's okay
+      console.log('Popup not open, message not delivered:', error.message);
+    });
   }
 
   setupMessageListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('📨 Background received message:', message);
+      
       switch (message.type) {
         case 'SEND_MESSAGE':
           this.sendMessage(message.data);
+          sendResponse({ success: true });
           break;
         case 'GET_CONNECTION_STATUS':
           sendResponse({ connected: this.isConnected });
           break;
         case 'RECONNECT':
           console.log('🔄 Manual reconnect requested');
-          // Force disconnect first, then reconnect
           this.isConnected = false;
           if (this.ws) {
             this.ws.close();
           }
           setTimeout(() => this.connect(), 100);
-          break;
-        case 'OPEN_OFFERS_PAGE':
-          console.log('📋 Opening offers page');
-          chrome.tabs.create({
-            url: chrome.runtime.getURL('offers.html')
-          });
+          sendResponse({ success: true });
           break;
         case 'UPDATE_API_URL':
           console.log('🔧 Updating API URL to:', message.data);
           this.apiUrl = message.data;
-          // Reconnect with new URL
           this.isConnected = false;
           if (this.ws) {
             this.ws.close();
           }
           setTimeout(() => this.connect(), 100);
+          sendResponse({ success: true });
+          break;
+        case 'REQUEST_HISTORY':
+          console.log('📜 History requested, sending sync_history');
+          this.sendMessage('sync_history', 'sync_history');
+          sendResponse({ success: true });
           break;
       }
+      
+      return true; // Will respond asynchronously
     });
   }
 

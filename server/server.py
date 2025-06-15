@@ -22,27 +22,30 @@ class FreelainceServer:
         self.processed_messages = set()  # Track processed messages to prevent duplicates
         self.shutdown = False  # Shutdown flag
         self.offer_manager = None  # Will be initialized if Erwan system is available
+        self.schedule_manager = None  # Will be initialized if schedule system is available
         self.setup_csv_logging()
         self.init_offer_system()
+        self.init_schedule_system()
         
     def setup_csv_logging(self):
         """Initialize CSV file for conversation logging"""
         if not os.path.exists(self.csv_file):
             with open(self.csv_file, 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
-                writer.writerow(['date', 'message_type', 'content', 'client_id', 'client_ip'])
+                writer.writerow(['date', 'sender', 'message', 'client_id', 'client_ip', 'timestamp'])
                 
-    def log_to_csv(self, message_type, content, client_id, client_ip):
+    def log_to_csv(self, sender, message, client_id, client_ip):
         """Log conversation to CSV file"""
         try:
             with open(self.csv_file, 'a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 writer.writerow([
                     datetime.now().isoformat(),
-                    message_type,
-                    content,
+                    sender,
+                    message,
                     client_id,
-                    client_ip
+                    client_ip,
+                    int(time.time() * 1000)
                 ])
         except Exception as e:
             print(f"⚠️ Error logging to CSV: {e}")
@@ -51,7 +54,7 @@ class FreelainceServer:
         """Initialize the Erwan offer management system if available"""
         try:
             # Try to import the Erwan offer management system
-            erwan_path = Path(__file__).parent.parent.parent / "Erwan"
+            erwan_path = Path(__file__).parent.parent / "Erwan"
             if erwan_path.exists():
                 sys.path.insert(0, str(erwan_path))
                 
@@ -82,6 +85,29 @@ class FreelainceServer:
             print(f"⚠️ Could not import Erwan offer system: {e}")
         except Exception as e:
             print(f"⚠️ Error initializing offer system: {e}")
+    
+    def init_schedule_system(self):
+        """Initialize the schedule management system if available"""
+        try:
+            # Try to import the schedule management system
+            schedule_path = Path(__file__).parent.parent / "schedule"
+            if schedule_path.exists():
+                sys.path.insert(0, str(schedule_path))
+                
+                # Import the schedule management classes
+                from schedule_agent import ScheduleManager, Event
+                
+                self.schedule_manager = ScheduleManager()
+                print(f"✅ Loaded {len(self.schedule_manager.events)} existing events from schedule system")
+                print("📅 Schedule management system initialized successfully")
+                
+            else:
+                print("⚠️ Schedule system not found - calendar functionality will use sample data")
+                
+        except ImportError as e:
+            print(f"⚠️ Could not import schedule system: {e}")
+        except Exception as e:
+            print(f"⚠️ Error initializing schedule system: {e}")
     
     def create_sample_offers(self):
         """Create sample offers for demonstration"""
@@ -175,7 +201,7 @@ class FreelainceServer:
                 relevant_messages = [
                     row for row in all_rows 
                     if row['client_ip'] == client_ip and 
-                    row['message_type'] in ['user_message', 'bot_response', 'chat_answer']
+                    row['sender'] in ['user', 'bot']
                 ]
                 
                 # Get the last N messages
@@ -183,8 +209,8 @@ class FreelainceServer:
                 
                 for row in recent_messages:
                     history.append({
-                        'type': row['message_type'],
-                        'message': row['content'],
+                        'sender': row['sender'],
+                        'message': row['message'],
                         'timestamp': row['date'],
                         'client_id': row['client_id']
                     })
@@ -213,33 +239,9 @@ class FreelainceServer:
         }
         
         print(f"✅ New client connected: {client_id} from {client_ip}")
-        self.log_to_csv('connection', f'Client connected from {client_ip}', client_id, client_ip)
+        self.log_to_csv('system', f'Client connected from {client_ip}', client_id, client_ip)
         
-        # Only send welcome message if this is the first connection from this IP
-        existing_clients_from_ip = [cid for cid, data in self.clients.items() if data['ip'] == client_ip and cid != client_id]
-        is_first_connection = len(existing_clients_from_ip) == 0
-        
-        if is_first_connection:
-            # Send welcome message only for first connection
-            welcome_message = {
-                "type": "bot_response",
-                "message": f"Hello! I'm Freelaince, your AI Agent. I can chat with you and help you open relevant tabs! 🚀",
-                "timestamp": int(time.time() * 1000)
-            }
-            await websocket.send(json.dumps(welcome_message))
-            self.log_to_csv('bot_response', welcome_message['message'], client_id, client_ip)
-        
-        # Always load and send conversation history
-        history = self.load_conversation_history(client_ip)
-        if history:
-            history_message = {
-                "type": "conversation_history",
-                "history": history,
-                "timestamp": int(time.time() * 1000)
-            }
-            await websocket.send(json.dumps(history_message))
-            print(f"📜 Sent {len(history)} historical messages to {client_id}")
-        
+        # Always load and send conversation history on sync_history request
         return client_id
         
     async def unregister_client(self, websocket):
@@ -255,7 +257,7 @@ class FreelainceServer:
             client_data = self.clients[client_to_remove]
             client_ip = client_data['ip']
             print(f"❌ Client {client_to_remove} ({client_ip}) disconnected")
-            self.log_to_csv('disconnection', f'Client disconnected from {client_ip}', client_to_remove, client_ip)
+            self.log_to_csv('system', f'Client disconnected from {client_ip}', client_to_remove, client_ip)
             del self.clients[client_to_remove]
         
     async def handle_message(self, websocket, message_data):
@@ -276,9 +278,25 @@ class FreelainceServer:
         try:
             message = json.loads(message_data)
             
-            # Handle non-chat messages (offers system)
+            # Handle sync_history request
+            if message.get('type') == 'sync_history' or message.get('message') == 'sync_history':
+                history = self.load_conversation_history(client_ip)
+                if history:
+                    history_message = {
+                        "type": "conversation_history",
+                        "history": history,
+                        "timestamp": int(time.time() * 1000)
+                    }
+                    await websocket.send(json.dumps(history_message))
+                    print(f"📜 Sent {len(history)} historical messages to {client_id}")
+                return
+            
+            # Handle non-chat messages (offers and schedule systems)
             if message.get('type') in ['get_offers', 'update_offer_status']:
                 await self.handle_offers_message(websocket, message, client_id, client_ip)
+                return
+            elif message.get('type') in ['get_schedule', 'add_event', 'update_event', 'delete_event']:
+                await self.handle_schedule_message(websocket, message, client_id, client_ip)
                 return
             
             # Create message hash to prevent duplicates for chat messages
@@ -296,7 +314,7 @@ class FreelainceServer:
             
             # Log incoming message
             user_message = message.get('message', '')
-            self.log_to_csv('user_message', user_message, client_id, client_ip)
+            self.log_to_csv('user', user_message, client_id, client_ip)
             
             # Extract user message
             user_message_lower = user_message.lower().strip()
@@ -311,6 +329,8 @@ class FreelainceServer:
                 await self.send_help_message(websocket, client_id, client_ip)
             elif any(keyword in user_message_lower for keyword in ['freelance', 'work', 'project', 'client']):
                 await self.send_freelance_advice(websocket, user_message, client_id, client_ip)
+            elif any(keyword in user_message_lower for keyword in ['offer', 'offers', 'job', 'jobs']):
+                await self.send_offers_info(websocket, client_id, client_ip)
             else:
                 await self.send_echo_response(websocket, user_message, client_id, client_ip)
                 
@@ -322,7 +342,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(error_response))
-            self.log_to_csv('system_message', error_response['message'], client_id, client_ip)
+            self.log_to_csv('system', error_response['message'], client_id, client_ip)
             
     async def handle_navigation_request(self, websocket, user_message_lower, original_message, client_id, client_ip):
         """Handle requests to open URLs"""
@@ -357,7 +377,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(tab_message))
-            self.log_to_csv('open_tab', f"Opened {found_url}", client_id, client_ip)
+            self.log_to_csv('system', f"Opened {found_url}", client_id, client_ip)
             
             # Follow up with a chat response
             followup_message = {
@@ -366,7 +386,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(followup_message))
-            self.log_to_csv('chat_answer', followup_message['message'], client_id, client_ip)
+            self.log_to_csv('bot', followup_message['message'], client_id, client_ip)
         else:
             # Ask for clarification
             clarification_message = {
@@ -375,7 +395,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(clarification_message))
-            self.log_to_csv('chat_answer', clarification_message['message'], client_id, client_ip)
+            self.log_to_csv('bot', clarification_message['message'], client_id, client_ip)
             
     async def send_help_message(self, websocket, client_id, client_ip):
         """Send help information"""
@@ -385,15 +405,15 @@ class FreelainceServer:
 
 🌐 **Website Navigation**: Say "open LinkedIn", "go to GitHub", "visit Upwork", etc.
 💼 **Freelance Support**: Ask about freelance work, projects, or clients
-📋 **Offers Management**: View and manage your freelance opportunities through the offers page
+📋 **Offers Management**: Ask about job offers or opportunities
 💬 **General Chat**: I'll respond to your messages and questions
 🔗 **Quick Links**: I can open popular freelance platforms, social media, and development tools
 
-Try saying: "open GitHub", "help me with freelance work", or click the offers button (📋) to view your opportunities!""",
+Try saying: "open GitHub", "help me with freelance work", or "show me job offers"!""",
             "timestamp": int(time.time() * 1000)
         }
         await websocket.send(json.dumps(help_message))
-        self.log_to_csv('chat_answer', help_message['message'], client_id, client_ip)
+        self.log_to_csv('bot', help_message['message'], client_id, client_ip)
         
     async def send_freelance_advice(self, websocket, original_message, client_id, client_ip):
         """Send freelance-related advice"""
@@ -414,7 +434,23 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             "timestamp": int(time.time() * 1000)
         }
         await websocket.send(json.dumps(response))
-        self.log_to_csv('chat_answer', response['message'], client_id, client_ip)
+        self.log_to_csv('bot', response['message'], client_id, client_ip)
+
+    async def send_offers_info(self, websocket, client_id, client_ip):
+        """Send information about offers"""
+        if self.offer_manager and len(self.offer_manager) > 0:
+            offer_count = len(self.offer_manager)
+            response_message = f"I have {offer_count} job offers available! These include photography gigs, corporate work, and family sessions. You can view detailed information about each offer through the offers system."
+        else:
+            response_message = "I don't have any job offers loaded at the moment. The offers system can help you discover and manage freelance opportunities when available."
+        
+        response = {
+            "type": "chat_answer",
+            "message": response_message,
+            "timestamp": int(time.time() * 1000)
+        }
+        await websocket.send(json.dumps(response))
+        self.log_to_csv('bot', response['message'], client_id, client_ip)
         
     async def send_echo_response(self, websocket, original_message, client_id, client_ip):
         """Send echo response for general messages"""
@@ -425,7 +461,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             "original_message": original_message
         }
         await websocket.send(json.dumps(response))
-        self.log_to_csv('bot_response', response['message'], client_id, client_ip)
+        self.log_to_csv('bot', response['message'], client_id, client_ip)
     
     async def handle_offers_message(self, websocket, message, client_id, client_ip):
         """Handle offers-related messages"""
@@ -510,7 +546,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
                 print(f"⚠️ Offer manager not available, sending empty response to {client_id}")
             
             await websocket.send(json.dumps(response))
-            self.log_to_csv('offers_request', f"Sent {response.get('total_count', 0)} offers", client_id, client_ip)
+            self.log_to_csv('system', f"Sent {response.get('total_count', 0)} offers", client_id, client_ip)
             
         except Exception as e:
             print(f"❌ Error getting offers: {e}")
@@ -544,7 +580,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
                     
                     # Save changes to file
                     try:
-                        erwan_path = Path(__file__).parent.parent.parent / "Erwan"
+                        erwan_path = Path(__file__).parent.parent / "Erwan"
                         offers_file = erwan_path / "offers_backup.pickle"
                         self.offer_manager.save_to_file(str(offers_file), "pickle")
                         print(f"💾 Saved offers to {offers_file}")
@@ -574,13 +610,205 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
                 print(f"❌ Invalid update request: offer_id={offer_id}, status={new_status}, manager={self.offer_manager is not None}")
             
             await websocket.send(json.dumps(response))
-            self.log_to_csv('offer_status_update', f"Updated {offer_id} to {new_status}", client_id, client_ip)
+            self.log_to_csv('system', f"Updated {offer_id} to {new_status}", client_id, client_ip)
             
         except Exception as e:
             print(f"❌ Error updating offer status: {e}")
             error_response = {
                 "type": "error",
                 "message": f"Error updating offer status: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_schedule_message(self, websocket, message, client_id, client_ip):
+        """Handle schedule-related messages"""
+        message_type = message.get('type')
+        
+        if message_type == 'get_schedule':
+            await self.handle_get_schedule(websocket, message, client_id, client_ip)
+        elif message_type == 'add_event':
+            await self.handle_add_event(websocket, message, client_id, client_ip)
+        elif message_type == 'update_event':
+            await self.handle_update_event(websocket, message, client_id, client_ip)
+        elif message_type == 'delete_event':
+            await self.handle_delete_event(websocket, message, client_id, client_ip)
+        else:
+            print(f"❌ Unknown schedule message type: {message_type}")
+    
+    async def handle_get_schedule(self, websocket, message, client_id, client_ip):
+        """Handle get_schedule request"""
+        print(f"📅 Get schedule request from {client_id}")
+        
+        try:
+            if self.schedule_manager:
+                # Format events for the client
+                formatted_events = []
+                for event in self.schedule_manager.events:
+                    formatted_events.append({
+                        'id': str(hash(f"{event.title}{event.start_time}")),  # Generate consistent ID
+                        'title': event.title,
+                        'start_time': event.start_time.isoformat(),
+                        'end_time': event.end_time.isoformat(),
+                        'description': event.description,
+                        'location': event.location,
+                        'priority': event.priority
+                    })
+                
+                response = {
+                    "type": "schedule_data",
+                    "events": formatted_events,
+                    "timestamp": int(time.time() * 1000),
+                    "total_count": len(formatted_events)
+                }
+                
+                print(f"✅ Sending {len(formatted_events)} events to {client_id}")
+                
+            else:
+                # Fallback: send sample data if schedule manager is not available
+                sample_events = [
+                    {
+                        'id': '1',
+                        'title': 'Sample Meeting',
+                        'start_time': datetime.now().isoformat(),
+                        'end_time': datetime.now().replace(hour=datetime.now().hour + 1).isoformat(),
+                        'description': 'Sample event description',
+                        'location': 'Sample location',
+                        'priority': 3
+                    }
+                ]
+                response = {
+                    "type": "schedule_data",
+                    "events": sample_events,
+                    "timestamp": int(time.time() * 1000),
+                    "total_count": len(sample_events),
+                    "message": "Schedule management system not available - showing sample data"
+                }
+                print(f"⚠️ Schedule manager not available, sending sample data to {client_id}")
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Sent {response.get('total_count', 0)} events", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error getting schedule: {e}")
+            error_response = {
+                "type": "error",
+                "message": f"Error retrieving schedule: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_add_event(self, websocket, message, client_id, client_ip):
+        """Handle add_event request"""
+        print(f"📅 Add event request from {client_id}: {message.get('title', 'No title')}")
+        
+        try:
+            if self.schedule_manager:
+                from schedule_agent import Event
+                
+                # Parse datetime strings
+                start_time = datetime.fromisoformat(message['start_time'].replace('Z', '+00:00'))
+                end_time = datetime.fromisoformat(message['end_time'].replace('Z', '+00:00'))
+                
+                # Create new event
+                new_event = Event(
+                    title=message['title'],
+                    start_time=start_time,
+                    end_time=end_time,
+                    description=message.get('description', ''),
+                    location=message.get('location', ''),
+                    priority=message.get('priority', 3)
+                )
+                
+                result = self.schedule_manager.add_event(new_event)
+                
+                response = {
+                    "type": "event_added",
+                    "success": result['success'],
+                    "message": result['message'],
+                    "timestamp": int(time.time() * 1000)
+                }
+                
+                if result['conflicts']:
+                    response['conflicts'] = [
+                        {
+                            'title': conflict.title,
+                            'start_time': conflict.start_time.isoformat(),
+                            'end_time': conflict.end_time.isoformat()
+                        }
+                        for conflict in result['conflicts']
+                    ]
+                
+                print(f"✅ Added event '{message['title']}' for {client_id}")
+                
+            else:
+                response = {
+                    "type": "event_added",
+                    "success": False,
+                    "message": "Schedule management system not available",
+                    "timestamp": int(time.time() * 1000)
+                }
+                print(f"⚠️ Schedule manager not available for {client_id}")
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Added event: {message.get('title', 'No title')}", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error adding event: {e}")
+            error_response = {
+                "type": "event_added",
+                "success": False,
+                "message": f"Error adding event: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_update_event(self, websocket, message, client_id, client_ip):
+        """Handle update_event request"""
+        print(f"📅 Update event request from {client_id}: {message.get('title', 'No title')}")
+        
+        try:
+            response = {
+                "type": "event_updated",
+                "success": True,
+                "message": "Event updated successfully (simulated)",
+                "timestamp": int(time.time() * 1000)
+            }
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Updated event: {message.get('title', 'No title')}", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error updating event: {e}")
+            error_response = {
+                "type": "event_updated",
+                "success": False,
+                "message": f"Error updating event: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_delete_event(self, websocket, message, client_id, client_ip):
+        """Handle delete_event request"""
+        print(f"📅 Delete event request from {client_id}: {message.get('id', 'No ID')}")
+        
+        try:
+            response = {
+                "type": "event_deleted",
+                "success": True,
+                "message": "Event deleted successfully (simulated)",
+                "timestamp": int(time.time() * 1000)
+            }
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Deleted event: {message.get('id', 'No ID')}", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error deleting event: {e}")
+            error_response = {
+                "type": "event_deleted",
+                "success": False,
+                "message": f"Error deleting event: {str(e)}",
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(error_response))
@@ -613,7 +841,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             for client_id, data in self.clients.items():
                 try:
                     await data['websocket'].send(message_str)
-                    self.log_to_csv('system_message', shutdown_message['message'], client_id, data['ip'])
+                    self.log_to_csv('system', shutdown_message['message'], client_id, data['ip'])
                 except:
                     disconnected.append(client_id)
             
@@ -646,9 +874,9 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             print(f'📡 Ready to accept connections and help with freelance work!')
             print('')
             print('💡 To test the server:')
-            print('   1. Load the Freelaince Chrome extension')
-            print('   2. Open any webpage')
-            print('   3. Click the Freelaince button and start messaging')
+            print('   1. Load the Freelaince Chrome extension from the "extension" folder')
+            print('   2. Click the extension icon in the browser toolbar')
+            print('   3. Start chatting in the popup window')
             print('')
             print('🛑 Press Ctrl+C to stop the server')
             print('')

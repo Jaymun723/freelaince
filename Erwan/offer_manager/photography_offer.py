@@ -63,11 +63,11 @@ class PhotographyOffer(StandardOffer):
             date_time, duration, location, payment_terms, requirements, source_url
         )
         
-        self.event_type = self._validate_event_type(event_type)
-        self.photos_expected = self._validate_photos_expected(photos_expected)
+        self.event_type = event_type
+        self.photos_expected = photos_expected
         self.equipment_requirements = equipment_requirements or []
         self.post_processing_requirements = post_processing_requirements
-        self.delivery_format = self._validate_delivery_format(delivery_format)
+        self.delivery_format = delivery_format
         self.delivery_timeline = delivery_timeline
         self.additional_services = additional_services or []
     
