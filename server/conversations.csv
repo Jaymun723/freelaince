@@ -1,0 +1,44 @@
+date,sender,message,client_id,client_ip,timestamp
+2025-06-15T16:02:26.415285,system,Client connected from 127.0.0.1,af43c159,127.0.0.1,1749996146415
+2025-06-15T16:02:52.984872,system,Client connected from 127.0.0.1,49f69ca7,127.0.0.1,1749996172984
+2025-06-15T16:02:59.919333,user,Hello !,49f69ca7,127.0.0.1,1749996179919
+2025-06-15T16:03:01.400017,bot,Echo: Hello !,49f69ca7,127.0.0.1,1749996181400
+2025-06-15T16:03:20.815689,user,Can you help me photo ?,49f69ca7,127.0.0.1,1749996200815
+2025-06-15T16:03:21.936846,bot,"Here's what I can help you with:
+
+🌐 **Website Navigation**: Say ""open LinkedIn"", ""go to GitHub"", ""visit Upwork"", etc.
+💼 **Freelance Support**: Ask about freelance work, projects, or clients
+📋 **Offers Management**: Ask about job offers or opportunities
+💬 **General Chat**: I'll respond to your messages and questions
+🔗 **Quick Links**: I can open popular freelance platforms, social media, and development tools
+
+Try saying: ""open GitHub"", ""help me with freelance work"", or ""show me job offers""!",49f69ca7,127.0.0.1,1749996201936
+2025-06-15T16:03:38.348094,user,open likenidn,49f69ca7,127.0.0.1,1749996218348
+2025-06-15T16:03:39.288358,bot,"I'd be happy to help you open a website! I can open popular freelance platforms like Upwork, Fiverr, LinkedIn, GitHub, and more. Which site would you like to visit?",49f69ca7,127.0.0.1,1749996219288
+2025-06-15T16:03:43.135115,user,open fiverr,49f69ca7,127.0.0.1,1749996223135
+2025-06-15T16:03:43.870271,system,Opened https://fiverr.com,49f69ca7,127.0.0.1,1749996223870
+2025-06-15T16:03:43.871093,bot,I've opened https://fiverr.com in a new tab. Is there anything specific you'd like to do there?,49f69ca7,127.0.0.1,1749996223871
+2025-06-15T16:04:14.026607,system,Client disconnected from 127.0.0.1,49f69ca7,127.0.0.1,1749996254026
+2025-06-15T16:11:35.332840,system,Client connected from 127.0.0.1,77ad87ef,127.0.0.1,1749996695332
+2025-06-15T16:11:46.363127,system,Client connected from 127.0.0.1,79b77c93,127.0.0.1,1749996706363
+2025-06-15T16:11:46.371376,system,Sent 3 offers,79b77c93,127.0.0.1,1749996706371
+2025-06-15T16:13:53.845831,system,Client disconnected from 127.0.0.1,79b77c93,127.0.0.1,1749996833845
+2025-06-15T16:13:54.243858,system,Client connected from 127.0.0.1,6f75b0ec,127.0.0.1,1749996834243
+2025-06-15T16:13:54.256092,system,Sent 3 offers,6f75b0ec,127.0.0.1,1749996834256
+2025-06-15T16:13:55.755471,system,Client disconnected from 127.0.0.1,77ad87ef,127.0.0.1,1749996835755
+2025-06-15T16:13:55.783412,system,Client disconnected from 127.0.0.1,6f75b0ec,127.0.0.1,1749996835783
+2025-06-15T16:13:56.277191,system,Client connected from 127.0.0.1,8cf06595,127.0.0.1,1749996836277
+2025-06-15T16:14:00.868413,system,Client connected from 127.0.0.1,ba11b34f,127.0.0.1,1749996840868
+2025-06-15T16:14:00.884563,system,Sent 3 offers,ba11b34f,127.0.0.1,1749996840884
+2025-06-15T16:14:05.347374,system,Updated a0e87c1c-f313-4e83-a7bf-db04926094f3 to completed,ba11b34f,127.0.0.1,1749996845347
+2025-06-15T16:14:05.356030,system,Sent 3 offers,ba11b34f,127.0.0.1,1749996845356
+2025-06-15T16:14:14.949215,system,Updated 54f7fc84-8dbe-43d9-aa50-06cf4d27e802 to declined,ba11b34f,127.0.0.1,1749996854949
+2025-06-15T16:14:14.953319,system,Sent 3 offers,ba11b34f,127.0.0.1,1749996854953
+2025-06-15T16:14:16.234173,system,Updated 54f7fc84-8dbe-43d9-aa50-06cf4d27e802 to pending,ba11b34f,127.0.0.1,1749996856234
+2025-06-15T16:14:16.240109,system,Sent 3 offers,ba11b34f,127.0.0.1,1749996856240
+2025-06-15T16:14:17.394376,system,Updated 54f7fc84-8dbe-43d9-aa50-06cf4d27e802 to accepted,ba11b34f,127.0.0.1,1749996857394
+2025-06-15T16:14:17.404837,system,Sent 3 offers,ba11b34f,127.0.0.1,1749996857404
+2025-06-15T16:14:18.838677,system,Updated 54f7fc84-8dbe-43d9-aa50-06cf4d27e802 to completed,ba11b34f,127.0.0.1,1749996858838
+2025-06-15T16:14:18.848047,system,Sent 3 offers,ba11b34f,127.0.0.1,1749996858848
+2025-06-15T16:14:29.102584,system,Client disconnected from 127.0.0.1,8cf06595,127.0.0.1,1749996869102
+2025-06-15T16:14:36.454359,system,Client disconnected from 127.0.0.1,ba11b34f,127.0.0.1,1749996876454

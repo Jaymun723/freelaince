@@ -30,19 +30,20 @@ class FreelainceServer:
         if not os.path.exists(self.csv_file):
             with open(self.csv_file, 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
-                writer.writerow(['date', 'message_type', 'content', 'client_id', 'client_ip'])
+                writer.writerow(['date', 'sender', 'message', 'client_id', 'client_ip', 'timestamp'])
                 
-    def log_to_csv(self, message_type, content, client_id, client_ip):
+    def log_to_csv(self, sender, message, client_id, client_ip):
         """Log conversation to CSV file"""
         try:
             with open(self.csv_file, 'a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 writer.writerow([
                     datetime.now().isoformat(),
-                    message_type,
-                    content,
+                    sender,
+                    message,
                     client_id,
-                    client_ip
+                    client_ip,
+                    int(time.time() * 1000)
                 ])
         except Exception as e:
             print(f"⚠️ Error logging to CSV: {e}")
@@ -51,7 +52,7 @@ class FreelainceServer:
         """Initialize the Erwan offer management system if available"""
         try:
             # Try to import the Erwan offer management system
-            erwan_path = Path(__file__).parent.parent.parent / "Erwan"
+            erwan_path = Path(__file__).parent.parent / "Erwan"
             if erwan_path.exists():
                 sys.path.insert(0, str(erwan_path))
                 
@@ -175,7 +176,7 @@ class FreelainceServer:
                 relevant_messages = [
                     row for row in all_rows 
                     if row['client_ip'] == client_ip and 
-                    row['message_type'] in ['user_message', 'bot_response', 'chat_answer']
+                    row['sender'] in ['user', 'bot']
                 ]
                 
                 # Get the last N messages
@@ -183,8 +184,8 @@ class FreelainceServer:
                 
                 for row in recent_messages:
                     history.append({
-                        'type': row['message_type'],
-                        'message': row['content'],
+                        'sender': row['sender'],
+                        'message': row['message'],
                         'timestamp': row['date'],
                         'client_id': row['client_id']
                     })
@@ -213,33 +214,9 @@ class FreelainceServer:
         }
         
         print(f"✅ New client connected: {client_id} from {client_ip}")
-        self.log_to_csv('connection', f'Client connected from {client_ip}', client_id, client_ip)
+        self.log_to_csv('system', f'Client connected from {client_ip}', client_id, client_ip)
         
-        # Only send welcome message if this is the first connection from this IP
-        existing_clients_from_ip = [cid for cid, data in self.clients.items() if data['ip'] == client_ip and cid != client_id]
-        is_first_connection = len(existing_clients_from_ip) == 0
-        
-        if is_first_connection:
-            # Send welcome message only for first connection
-            welcome_message = {
-                "type": "bot_response",
-                "message": f"Hello! I'm Freelaince, your AI Agent. I can chat with you and help you open relevant tabs! 🚀",
-                "timestamp": int(time.time() * 1000)
-            }
-            await websocket.send(json.dumps(welcome_message))
-            self.log_to_csv('bot_response', welcome_message['message'], client_id, client_ip)
-        
-        # Always load and send conversation history
-        history = self.load_conversation_history(client_ip)
-        if history:
-            history_message = {
-                "type": "conversation_history",
-                "history": history,
-                "timestamp": int(time.time() * 1000)
-            }
-            await websocket.send(json.dumps(history_message))
-            print(f"📜 Sent {len(history)} historical messages to {client_id}")
-        
+        # Always load and send conversation history on sync_history request
         return client_id
         
     async def unregister_client(self, websocket):
@@ -255,7 +232,7 @@ class FreelainceServer:
             client_data = self.clients[client_to_remove]
             client_ip = client_data['ip']
             print(f"❌ Client {client_to_remove} ({client_ip}) disconnected")
-            self.log_to_csv('disconnection', f'Client disconnected from {client_ip}', client_to_remove, client_ip)
+            self.log_to_csv('system', f'Client disconnected from {client_ip}', client_to_remove, client_ip)
             del self.clients[client_to_remove]
         
     async def handle_message(self, websocket, message_data):
@@ -275,6 +252,19 @@ class FreelainceServer:
         
         try:
             message = json.loads(message_data)
+            
+            # Handle sync_history request
+            if message.get('type') == 'sync_history' or message.get('message') == 'sync_history':
+                history = self.load_conversation_history(client_ip)
+                if history:
+                    history_message = {
+                        "type": "conversation_history",
+                        "history": history,
+                        "timestamp": int(time.time() * 1000)
+                    }
+                    await websocket.send(json.dumps(history_message))
+                    print(f"📜 Sent {len(history)} historical messages to {client_id}")
+                return
             
             # Handle non-chat messages (offers system)
             if message.get('type') in ['get_offers', 'update_offer_status']:
@@ -296,7 +286,7 @@ class FreelainceServer:
             
             # Log incoming message
             user_message = message.get('message', '')
-            self.log_to_csv('user_message', user_message, client_id, client_ip)
+            self.log_to_csv('user', user_message, client_id, client_ip)
             
             # Extract user message
             user_message_lower = user_message.lower().strip()
@@ -311,6 +301,8 @@ class FreelainceServer:
                 await self.send_help_message(websocket, client_id, client_ip)
             elif any(keyword in user_message_lower for keyword in ['freelance', 'work', 'project', 'client']):
                 await self.send_freelance_advice(websocket, user_message, client_id, client_ip)
+            elif any(keyword in user_message_lower for keyword in ['offer', 'offers', 'job', 'jobs']):
+                await self.send_offers_info(websocket, client_id, client_ip)
             else:
                 await self.send_echo_response(websocket, user_message, client_id, client_ip)
                 
@@ -322,7 +314,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(error_response))
-            self.log_to_csv('system_message', error_response['message'], client_id, client_ip)
+            self.log_to_csv('system', error_response['message'], client_id, client_ip)
             
     async def handle_navigation_request(self, websocket, user_message_lower, original_message, client_id, client_ip):
         """Handle requests to open URLs"""
@@ -357,7 +349,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(tab_message))
-            self.log_to_csv('open_tab', f"Opened {found_url}", client_id, client_ip)
+            self.log_to_csv('system', f"Opened {found_url}", client_id, client_ip)
             
             # Follow up with a chat response
             followup_message = {
@@ -366,7 +358,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(followup_message))
-            self.log_to_csv('chat_answer', followup_message['message'], client_id, client_ip)
+            self.log_to_csv('bot', followup_message['message'], client_id, client_ip)
         else:
             # Ask for clarification
             clarification_message = {
@@ -375,7 +367,7 @@ class FreelainceServer:
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(clarification_message))
-            self.log_to_csv('chat_answer', clarification_message['message'], client_id, client_ip)
+            self.log_to_csv('bot', clarification_message['message'], client_id, client_ip)
             
     async def send_help_message(self, websocket, client_id, client_ip):
         """Send help information"""
@@ -385,15 +377,15 @@ class FreelainceServer:
 
 🌐 **Website Navigation**: Say "open LinkedIn", "go to GitHub", "visit Upwork", etc.
 💼 **Freelance Support**: Ask about freelance work, projects, or clients
-📋 **Offers Management**: View and manage your freelance opportunities through the offers page
+📋 **Offers Management**: Ask about job offers or opportunities
 💬 **General Chat**: I'll respond to your messages and questions
 🔗 **Quick Links**: I can open popular freelance platforms, social media, and development tools
 
-Try saying: "open GitHub", "help me with freelance work", or click the offers button (📋) to view your opportunities!""",
+Try saying: "open GitHub", "help me with freelance work", or "show me job offers"!""",
             "timestamp": int(time.time() * 1000)
         }
         await websocket.send(json.dumps(help_message))
-        self.log_to_csv('chat_answer', help_message['message'], client_id, client_ip)
+        self.log_to_csv('bot', help_message['message'], client_id, client_ip)
         
     async def send_freelance_advice(self, websocket, original_message, client_id, client_ip):
         """Send freelance-related advice"""
@@ -414,7 +406,23 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             "timestamp": int(time.time() * 1000)
         }
         await websocket.send(json.dumps(response))
-        self.log_to_csv('chat_answer', response['message'], client_id, client_ip)
+        self.log_to_csv('bot', response['message'], client_id, client_ip)
+
+    async def send_offers_info(self, websocket, client_id, client_ip):
+        """Send information about offers"""
+        if self.offer_manager and len(self.offer_manager) > 0:
+            offer_count = len(self.offer_manager)
+            response_message = f"I have {offer_count} job offers available! These include photography gigs, corporate work, and family sessions. You can view detailed information about each offer through the offers system."
+        else:
+            response_message = "I don't have any job offers loaded at the moment. The offers system can help you discover and manage freelance opportunities when available."
+        
+        response = {
+            "type": "chat_answer",
+            "message": response_message,
+            "timestamp": int(time.time() * 1000)
+        }
+        await websocket.send(json.dumps(response))
+        self.log_to_csv('bot', response['message'], client_id, client_ip)
         
     async def send_echo_response(self, websocket, original_message, client_id, client_ip):
         """Send echo response for general messages"""
@@ -425,7 +433,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             "original_message": original_message
         }
         await websocket.send(json.dumps(response))
-        self.log_to_csv('bot_response', response['message'], client_id, client_ip)
+        self.log_to_csv('bot', response['message'], client_id, client_ip)
     
     async def handle_offers_message(self, websocket, message, client_id, client_ip):
         """Handle offers-related messages"""
@@ -510,7 +518,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
                 print(f"⚠️ Offer manager not available, sending empty response to {client_id}")
             
             await websocket.send(json.dumps(response))
-            self.log_to_csv('offers_request', f"Sent {response.get('total_count', 0)} offers", client_id, client_ip)
+            self.log_to_csv('system', f"Sent {response.get('total_count', 0)} offers", client_id, client_ip)
             
         except Exception as e:
             print(f"❌ Error getting offers: {e}")
@@ -544,7 +552,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
                     
                     # Save changes to file
                     try:
-                        erwan_path = Path(__file__).parent.parent.parent / "Erwan"
+                        erwan_path = Path(__file__).parent.parent / "Erwan"
                         offers_file = erwan_path / "offers_backup.pickle"
                         self.offer_manager.save_to_file(str(offers_file), "pickle")
                         print(f"💾 Saved offers to {offers_file}")
@@ -574,7 +582,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
                 print(f"❌ Invalid update request: offer_id={offer_id}, status={new_status}, manager={self.offer_manager is not None}")
             
             await websocket.send(json.dumps(response))
-            self.log_to_csv('offer_status_update', f"Updated {offer_id} to {new_status}", client_id, client_ip)
+            self.log_to_csv('system', f"Updated {offer_id} to {new_status}", client_id, client_ip)
             
         except Exception as e:
             print(f"❌ Error updating offer status: {e}")
@@ -613,7 +621,7 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             for client_id, data in self.clients.items():
                 try:
                     await data['websocket'].send(message_str)
-                    self.log_to_csv('system_message', shutdown_message['message'], client_id, data['ip'])
+                    self.log_to_csv('system', shutdown_message['message'], client_id, data['ip'])
                 except:
                     disconnected.append(client_id)
             
@@ -646,9 +654,9 @@ Try saying: "open GitHub", "help me with freelance work", or click the offers bu
             print(f'📡 Ready to accept connections and help with freelance work!')
             print('')
             print('💡 To test the server:')
-            print('   1. Load the Freelaince Chrome extension')
-            print('   2. Open any webpage')
-            print('   3. Click the Freelaince button and start messaging')
+            print('   1. Load the Freelaince Chrome extension from the "extension" folder')
+            print('   2. Click the extension icon in the browser toolbar')
+            print('   3. Start chatting in the popup window')
             print('')
             print('🛑 Press Ctrl+C to stop the server')
             print('')

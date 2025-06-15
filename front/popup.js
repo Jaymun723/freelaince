@@ -2,14 +2,18 @@ document.addEventListener('DOMContentLoaded', function() {
   const apiUrlInput = document.getElementById('apiUrl');
   const saveBtn = document.getElementById('saveBtn');
   const reconnectBtn = document.getElementById('reconnectBtn');
+  const offersBtn = document.getElementById('offersBtn');
   const connectionStatus = document.getElementById('connectionStatus');
 
   // Load saved settings
   chrome.storage.sync.get(['apiUrl'], function(result) {
     if (result.apiUrl) {
       apiUrlInput.value = result.apiUrl;
+      // Also store in localStorage for offers page access
+      localStorage.setItem('freelaince_apiUrl', result.apiUrl);
     } else {
       apiUrlInput.value = 'ws://localhost:8080';
+      localStorage.setItem('freelaince_apiUrl', 'ws://localhost:8080');
     }
   });
 
@@ -24,6 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (apiUrl) {
       chrome.storage.sync.set({ apiUrl: apiUrl }, function() {
+        // Also store in localStorage for offers page access
+        localStorage.setItem('freelaince_apiUrl', apiUrl);
+        
         // Show saved feedback
         saveBtn.textContent = 'Saved!';
         saveBtn.style.background = '#38a169';
@@ -57,6 +64,13 @@ document.addEventListener('DOMContentLoaded', function() {
         updateConnectionStatus(response && response.connected);
       });
     }, 2000);
+  });
+
+  // Open offers page
+  offersBtn.addEventListener('click', function() {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('offers.html')
+    });
   });
 
   function updateConnectionStatus(connected) {
