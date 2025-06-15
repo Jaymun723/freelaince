@@ -4,7 +4,7 @@ PhotographyOffer - Specialized offer class for photography jobs with verificatio
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from .standard_offer_extended import StandardOffer
+from .standard_offer import StandardOffer
 
 
 class PhotographyOffer(StandardOffer):
