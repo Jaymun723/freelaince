@@ -9,6 +9,8 @@ freelance opportunities using AI-powered web search.
 import logging
 from datetime import datetime
 from offer_manager import OfferManager, OfferFinder, LLMInterface
+from smolagents import CodeAgent, HfApiModel, InferenceClientModel, LiteLLMModel
+
 
 
 class MockLLM:
@@ -129,8 +131,23 @@ def demonstrate_offer_finder():
     
     # Create manager and finder instances
     manager = OfferManager()
-    mock_llm = MockLLM()
-    finder = OfferFinder(mock_llm)
+    ANTHROPIC_API_KEY = "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"
+
+    # Model
+    model = LiteLLMModel(
+        model_id="claude-3-5-sonnet-20240620",
+        api_key=ANTHROPIC_API_KEY,
+        verbose=False
+    )
+
+    # Agent
+    agent = CodeAgent(
+        tools=[],
+        model=model,
+        add_base_tools=True
+    )
+
+    finder = OfferFinder(agent)
     
     print("\\n1. Free Search - Photography Jobs in New York")
     print("-" * 50)
@@ -172,7 +189,7 @@ def demonstrate_offer_finder():
     
     print("\\n4. Personalized Search - Based on User Profile")
     print("-" * 50)
-    
+    """
     # Define user context
     user_context = '''
     User Profile:
@@ -261,7 +278,7 @@ def demonstrate_offer_finder():
     print("3. Implement caching and rate limiting")
     print("4. Add more sophisticated duplicate detection")
     print("5. Create UI for search criteria input")
-
+"""
 
 if __name__ == "__main__":
     demonstrate_offer_finder()

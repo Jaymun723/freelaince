@@ -359,6 +359,5 @@ def demonstrate_smolagents_finder():
     print("4. Add caching and rate limiting for API efficiency")
     print("5. Create custom tools for specific job board parsing")
 
-
 if __name__ == "__main__":
     demonstrate_smolagents_finder()

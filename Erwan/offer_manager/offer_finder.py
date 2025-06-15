@@ -3,6 +3,7 @@ OfferFinder - Web search and AI-powered offer discovery system using smolagents
 FIXED VERSION: LLMInterface is always available regardless of smolagents
 """
 
+import ast
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Union, Protocol
@@ -19,7 +20,7 @@ class LLMInterface(Protocol):
 
 # Import smolagents for LLM functionality
 try:
-    from smolagents import CodeAgent, HfApiModel, LiteLLMModel
+    from smolagents import CodeAgent, HfApiModel, InferenceClientModel
     SMOLAGENTS_AVAILABLE = True
 except ImportError:
     SMOLAGENTS_AVAILABLE = False
@@ -43,7 +44,7 @@ SEARCH CRITERIA:
 - Additional Filters: {additional_filters}
 
 INSTRUCTIONS:
-1. Find relevant freelance job opportunities from websites like:
+1. Find relevant freelance job opportunities from websites, here is a list of example but also use others:
    - Upwork, Fiverr, Freelancer
    - Craigslist, Facebook Marketplace
    - LinkedIn, Indeed
@@ -51,7 +52,7 @@ INSTRUCTIONS:
    - Local job boards
 
 2. For each opportunity found, extract the following information:
-   - Client name (if available, otherwise use "Unknown Client")
+   - Client name
    - Client contact (email/phone if available)
    - Client company (if available)
    - Job description
@@ -63,9 +64,6 @@ INSTRUCTIONS:
    - Source URL (REQUIRED - exact URL where found)
 
 3. CRITICAL RULES:
-   - Only include information that is explicitly stated
-   - Use "NOT_AVAILABLE" for any missing information
-   - Do NOT guess or fabricate missing details
    - Always include the exact source URL
 
 4. For photography jobs, also extract:
@@ -139,8 +137,6 @@ INSTRUCTIONS:
 
 4. For each opportunity, extract information following the same rules as free search:
    - Only include explicitly stated information
-   - Use "NOT_AVAILABLE" for missing data
-   - Do NOT guess or fabricate details
    - Always include exact source URL
 
 5. Rank opportunities by relevance to user profile
@@ -149,22 +145,23 @@ Use the same JSON format as the free search template.
 """
 
     MISSING_DATA_DEFAULTS = {
-        'client_name': 'Unknown Client',
-        'client_contact': None,
-        'client_company': None,
-        'job_description': None,
-        'date_time': None,
-        'duration': None,
-        'location': None,
-        'payment_terms': None,
-        'requirements': None,
-        'event_type': 'other',
-        'photos_expected': 0,
-        'equipment_requirements': [],
-        'post_processing_requirements': None,
-        'delivery_format': 'digital_download',
-        'delivery_timeline': None,
-        'additional_services': []
+        "client_name": "ERR",
+        "source_url" : "",
+        "client_contact": None,
+        "client_company": None,
+        "job_description": None,
+        "date_time": None,
+        "duration": None,
+        "location": None,
+        "payment_terms": None,
+        "requirements": None,
+        "event_type": "other",
+        "photos_expected": 0,
+        "equipment_requirements": [],
+        "post_processing_requirements": None,
+        "delivery_format": "digital_download",
+        "delivery_timeline": None,
+        "additional_services": []
     }
 
     def __init__(self, llm_instance: Optional[Union["CodeAgent", LLMInterface]] = None):
@@ -179,7 +176,7 @@ Use the same JSON format as the free search template.
             # Create default smolagents instance
             try:
                 # Use a default HuggingFace model
-                model = LiteLLMModel(model_id="gpt-3.5-turbo")
+                model = InferenceClientModel("microsoft/DialoGPT-medium")
                 self.llm = CodeAgent(tools=[], model=model)
                 self.is_smolagents = True
             except Exception as e:
@@ -224,6 +221,7 @@ Use the same JSON format as the free search template.
             raise ValueError("No LLM instance available")
         
         try:
+            print("*" * 80)
             if self.is_smolagents:
                 # Use smolagents CodeAgent interface
                 response = self.llm.run(prompt)
@@ -319,7 +317,6 @@ Use the same JSON format as the free search template.
             
             # Get LLM response
             response = self._generate_llm_response(prompt)
-            
             # Parse response and create offers
             offers = self._parse_llm_response(response, known_offers)
             
@@ -354,7 +351,7 @@ Use the same JSON format as the free search template.
                 self.logger.warning("No JSON found in LLM response")
                 return []
             
-            data = json.loads(json_match.group())
+            data = ast.literal_eval(json_match.group())
             offers_data = data.get('offers', [])
             
             new_offers = []
@@ -434,10 +431,8 @@ Use the same JSON format as the free search template.
             Processed offer data with proper defaults
         """
         processed = {}
-        
         for field, default_value in self.MISSING_DATA_DEFAULTS.items():
             raw_value = offer_data.get(field)
-            
             if raw_value == "NOT_AVAILABLE" or raw_value is None or raw_value == "":
                 processed[field] = default_value
                 self.logger.debug(f"Field '{field}' missing, using default: {default_value}")
