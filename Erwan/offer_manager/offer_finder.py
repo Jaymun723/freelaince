@@ -1,28 +1,28 @@
 """
 OfferFinder - Web search and AI-powered offer discovery system using smolagents
+FIXED VERSION: LLMInterface is always available regardless of smolagents
 """
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Protocol
 from urllib.parse import urlparse
 import re
-from .standard_offer import StandardOffer
-from .photography_offer import PhotographyOffer
+from offer_manager.standard_offer import StandardOffer
+from offer_manager.photography_offer import PhotographyOffer
+
+# Always define LLMInterface protocol for type hints and compatibility
+class LLMInterface(Protocol):
+    def generate_response(self, prompt: str) -> str:
+        """Generate a response from the LLM given a prompt."""
+        pass
 
 # Import smolagents for LLM functionality
 try:
-    from smolagents import CodeAgent, HfApiModel
+    from smolagents import CodeAgent, HfApiModel, LiteLLMModel
     SMOLAGENTS_AVAILABLE = True
 except ImportError:
     SMOLAGENTS_AVAILABLE = False
-    # Fallback protocol for compatibility
-    from typing import Protocol
-    
-    class LLMInterface(Protocol):
-        def generate_response(self, prompt: str) -> str:
-            """Generate a response from the LLM given a prompt."""
-            pass
 
 
 class OfferFinder:
@@ -167,7 +167,7 @@ Use the same JSON format as the free search template.
         'additional_services': []
     }
 
-    def __init__(self, llm_instance: Optional[Union["CodeAgent", "LLMInterface"]] = None):
+    def __init__(self, llm_instance: Optional[Union["CodeAgent", LLMInterface]] = None):
         """
         Initialize OfferFinder with an LLM instance.
         
@@ -179,7 +179,7 @@ Use the same JSON format as the free search template.
             # Create default smolagents instance
             try:
                 # Use a default HuggingFace model
-                model = HfApiModel("microsoft/DialoGPT-medium")
+                model = LiteLLMModel(model_id="gpt-3.5-turbo")
                 self.llm = CodeAgent(tools=[], model=model)
                 self.is_smolagents = True
             except Exception as e:
