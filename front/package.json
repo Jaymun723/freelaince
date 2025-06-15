@@ -1,0 +1,17 @@
+{
+  "name": "freelaince-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for Freelaince - AI Agent to help you in your freelance life",
+  "main": "server/server.py",
+  "scripts": {
+    "start": "cd server && python3 server.py",
+    "start-alt": "cd server && python3 run_server.py",
+    "dev": "cd server && python3 server.py",
+    "install-deps": "cd server && pip install -r requirements.txt"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": ["websocket", "freelance", "ai-agent", "server", "echo"],
+  "author": "",
+  "license": "MIT"
+}
