@@ -3,7 +3,7 @@ from schedule_agent import AddEventTool, RemoveEventTool, CheckConflictsTool, Up
 from schedule_web_view import ScheduleWebViewTool  # Import the web view for the schedule
 
 
-from .key import key  # Import your API key from a separate file
+from key import key  # Import your API key from a separate file
 
 ANTHROPIC_API_KEY = key
 # Create your base CodeAgent
@@ -24,6 +24,6 @@ schedule_agent = base_agent
 """response = schedule_agent.run("Delete all my activities for tomarow")
 response = schedule_agent.run("Add a team meeting tomorrow from 5 PM to 6 PM. It is not very important")
 response = schedule_agent.run("When could I put a meetting with the team, tomarrow before 6 PM?")
-schedule_agent.run("I finally need to play soccer tomarrow afternoon. Can you remove the least important meeting so I can do that and put my soccer game. It should last 1hour?")"""
-# response = schedule_agent.run("Add a team meeting today from 5 PM to 6 PM")
-schedule_agent.run("Can you show me my schedule for the week?")
+schedule_agent.run("I finally need to play soccer tomarrow afternoon. Can you remove the least important meeting so I can do that and put my soccer game. It should last 1hour?")
+response = schedule_agent.run("Add a team meeting today from 5 PM to 6 PM")"""
+schedule_agent.run("Can you show me my schedule?")

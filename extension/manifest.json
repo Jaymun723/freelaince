@@ -25,7 +25,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["offers.html", "offers.js"],
+      "resources": ["offers.html", "offers.js", "calendar.html", "calendar.js"],
       "matches": ["<all_urls>"]
     }
   ]

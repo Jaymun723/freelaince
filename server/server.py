@@ -22,8 +22,10 @@ class FreelainceServer:
         self.processed_messages = set()  # Track processed messages to prevent duplicates
         self.shutdown = False  # Shutdown flag
         self.offer_manager = None  # Will be initialized if Erwan system is available
+        self.schedule_manager = None  # Will be initialized if schedule system is available
         self.setup_csv_logging()
         self.init_offer_system()
+        self.init_schedule_system()
         
     def setup_csv_logging(self):
         """Initialize CSV file for conversation logging"""
@@ -83,6 +85,29 @@ class FreelainceServer:
             print(f"⚠️ Could not import Erwan offer system: {e}")
         except Exception as e:
             print(f"⚠️ Error initializing offer system: {e}")
+    
+    def init_schedule_system(self):
+        """Initialize the schedule management system if available"""
+        try:
+            # Try to import the schedule management system
+            schedule_path = Path(__file__).parent.parent / "schedule"
+            if schedule_path.exists():
+                sys.path.insert(0, str(schedule_path))
+                
+                # Import the schedule management classes
+                from schedule_agent import ScheduleManager, Event
+                
+                self.schedule_manager = ScheduleManager()
+                print(f"✅ Loaded {len(self.schedule_manager.events)} existing events from schedule system")
+                print("📅 Schedule management system initialized successfully")
+                
+            else:
+                print("⚠️ Schedule system not found - calendar functionality will use sample data")
+                
+        except ImportError as e:
+            print(f"⚠️ Could not import schedule system: {e}")
+        except Exception as e:
+            print(f"⚠️ Error initializing schedule system: {e}")
     
     def create_sample_offers(self):
         """Create sample offers for demonstration"""
@@ -266,9 +291,12 @@ class FreelainceServer:
                     print(f"📜 Sent {len(history)} historical messages to {client_id}")
                 return
             
-            # Handle non-chat messages (offers system)
+            # Handle non-chat messages (offers and schedule systems)
             if message.get('type') in ['get_offers', 'update_offer_status']:
                 await self.handle_offers_message(websocket, message, client_id, client_ip)
+                return
+            elif message.get('type') in ['get_schedule', 'add_event', 'update_event', 'delete_event']:
+                await self.handle_schedule_message(websocket, message, client_id, client_ip)
                 return
             
             # Create message hash to prevent duplicates for chat messages
@@ -589,6 +617,198 @@ Try saying: "open GitHub", "help me with freelance work", or "show me job offers
             error_response = {
                 "type": "error",
                 "message": f"Error updating offer status: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_schedule_message(self, websocket, message, client_id, client_ip):
+        """Handle schedule-related messages"""
+        message_type = message.get('type')
+        
+        if message_type == 'get_schedule':
+            await self.handle_get_schedule(websocket, message, client_id, client_ip)
+        elif message_type == 'add_event':
+            await self.handle_add_event(websocket, message, client_id, client_ip)
+        elif message_type == 'update_event':
+            await self.handle_update_event(websocket, message, client_id, client_ip)
+        elif message_type == 'delete_event':
+            await self.handle_delete_event(websocket, message, client_id, client_ip)
+        else:
+            print(f"❌ Unknown schedule message type: {message_type}")
+    
+    async def handle_get_schedule(self, websocket, message, client_id, client_ip):
+        """Handle get_schedule request"""
+        print(f"📅 Get schedule request from {client_id}")
+        
+        try:
+            if self.schedule_manager:
+                # Format events for the client
+                formatted_events = []
+                for event in self.schedule_manager.events:
+                    formatted_events.append({
+                        'id': str(hash(f"{event.title}{event.start_time}")),  # Generate consistent ID
+                        'title': event.title,
+                        'start_time': event.start_time.isoformat(),
+                        'end_time': event.end_time.isoformat(),
+                        'description': event.description,
+                        'location': event.location,
+                        'priority': event.priority
+                    })
+                
+                response = {
+                    "type": "schedule_data",
+                    "events": formatted_events,
+                    "timestamp": int(time.time() * 1000),
+                    "total_count": len(formatted_events)
+                }
+                
+                print(f"✅ Sending {len(formatted_events)} events to {client_id}")
+                
+            else:
+                # Fallback: send sample data if schedule manager is not available
+                sample_events = [
+                    {
+                        'id': '1',
+                        'title': 'Sample Meeting',
+                        'start_time': datetime.now().isoformat(),
+                        'end_time': datetime.now().replace(hour=datetime.now().hour + 1).isoformat(),
+                        'description': 'Sample event description',
+                        'location': 'Sample location',
+                        'priority': 3
+                    }
+                ]
+                response = {
+                    "type": "schedule_data",
+                    "events": sample_events,
+                    "timestamp": int(time.time() * 1000),
+                    "total_count": len(sample_events),
+                    "message": "Schedule management system not available - showing sample data"
+                }
+                print(f"⚠️ Schedule manager not available, sending sample data to {client_id}")
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Sent {response.get('total_count', 0)} events", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error getting schedule: {e}")
+            error_response = {
+                "type": "error",
+                "message": f"Error retrieving schedule: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_add_event(self, websocket, message, client_id, client_ip):
+        """Handle add_event request"""
+        print(f"📅 Add event request from {client_id}: {message.get('title', 'No title')}")
+        
+        try:
+            if self.schedule_manager:
+                from schedule_agent import Event
+                
+                # Parse datetime strings
+                start_time = datetime.fromisoformat(message['start_time'].replace('Z', '+00:00'))
+                end_time = datetime.fromisoformat(message['end_time'].replace('Z', '+00:00'))
+                
+                # Create new event
+                new_event = Event(
+                    title=message['title'],
+                    start_time=start_time,
+                    end_time=end_time,
+                    description=message.get('description', ''),
+                    location=message.get('location', ''),
+                    priority=message.get('priority', 3)
+                )
+                
+                result = self.schedule_manager.add_event(new_event)
+                
+                response = {
+                    "type": "event_added",
+                    "success": result['success'],
+                    "message": result['message'],
+                    "timestamp": int(time.time() * 1000)
+                }
+                
+                if result['conflicts']:
+                    response['conflicts'] = [
+                        {
+                            'title': conflict.title,
+                            'start_time': conflict.start_time.isoformat(),
+                            'end_time': conflict.end_time.isoformat()
+                        }
+                        for conflict in result['conflicts']
+                    ]
+                
+                print(f"✅ Added event '{message['title']}' for {client_id}")
+                
+            else:
+                response = {
+                    "type": "event_added",
+                    "success": False,
+                    "message": "Schedule management system not available",
+                    "timestamp": int(time.time() * 1000)
+                }
+                print(f"⚠️ Schedule manager not available for {client_id}")
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Added event: {message.get('title', 'No title')}", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error adding event: {e}")
+            error_response = {
+                "type": "event_added",
+                "success": False,
+                "message": f"Error adding event: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_update_event(self, websocket, message, client_id, client_ip):
+        """Handle update_event request"""
+        print(f"📅 Update event request from {client_id}: {message.get('title', 'No title')}")
+        
+        try:
+            response = {
+                "type": "event_updated",
+                "success": True,
+                "message": "Event updated successfully (simulated)",
+                "timestamp": int(time.time() * 1000)
+            }
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Updated event: {message.get('title', 'No title')}", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error updating event: {e}")
+            error_response = {
+                "type": "event_updated",
+                "success": False,
+                "message": f"Error updating event: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
+            await websocket.send(json.dumps(error_response))
+    
+    async def handle_delete_event(self, websocket, message, client_id, client_ip):
+        """Handle delete_event request"""
+        print(f"📅 Delete event request from {client_id}: {message.get('id', 'No ID')}")
+        
+        try:
+            response = {
+                "type": "event_deleted",
+                "success": True,
+                "message": "Event deleted successfully (simulated)",
+                "timestamp": int(time.time() * 1000)
+            }
+            
+            await websocket.send(json.dumps(response))
+            self.log_to_csv('system', f"Deleted event: {message.get('id', 'No ID')}", client_id, client_ip)
+            
+        except Exception as e:
+            print(f"❌ Error deleting event: {e}")
+            error_response = {
+                "type": "event_deleted",
+                "success": False,
+                "message": f"Error deleting event: {str(e)}",
                 "timestamp": int(time.time() * 1000)
             }
             await websocket.send(json.dumps(error_response))
