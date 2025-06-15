@@ -189,7 +189,6 @@ def demonstrate_offer_finder():
     
     print("\\n4. Personalized Search - Based on User Profile")
     print("-" * 50)
-    """
     # Define user context
     user_context = '''
     User Profile:
@@ -278,7 +277,6 @@ def demonstrate_offer_finder():
     print("3. Implement caching and rate limiting")
     print("4. Add more sophisticated duplicate detection")
     print("5. Create UI for search criteria input")
-"""
 
 if __name__ == "__main__":
     demonstrate_offer_finder()

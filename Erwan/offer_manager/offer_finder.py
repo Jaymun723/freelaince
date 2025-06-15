@@ -141,7 +141,33 @@ INSTRUCTIONS:
 
 5. Rank opportunities by relevance to user profile
 
-Use the same JSON format as the free search template.
+Format your response as JSON with this structure:
+{{
+    "offers": [
+        {{
+            "client_name": "string or NOT_AVAILABLE",
+            "client_contact": "string or NOT_AVAILABLE",
+            "client_company": "string or NOT_AVAILABLE",
+            "job_description": "string or NOT_AVAILABLE",
+            "date_time": "ISO format or NOT_AVAILABLE",
+            "duration": "string or NOT_AVAILABLE",
+            "location": "string or NOT_AVAILABLE",
+            "payment_terms": "string or NOT_AVAILABLE",
+            "requirements": "string or NOT_AVAILABLE",
+            "source_url": "REQUIRED - exact URL",
+            "offer_type": "photography or general",
+            "photography_details": {{
+                "event_type": "string or NOT_AVAILABLE",
+                "photos_expected": "number or NOT_AVAILABLE",
+                "equipment_requirements": ["list or empty"],
+                "post_processing_requirements": "string or NOT_AVAILABLE",
+                "delivery_format": "string or NOT_AVAILABLE",
+                "delivery_timeline": "string or NOT_AVAILABLE",
+                "additional_services": ["list or empty"]
+            }}
+        }}
+    ]
+}}
 """
 
     MISSING_DATA_DEFAULTS = {
@@ -163,6 +189,9 @@ Use the same JSON format as the free search template.
         "delivery_timeline": None,
         "additional_services": []
     }
+    
+    @staticmethod
+    def research(llm_instance:Optional[Union["CodeAgent", LLMInterface]],  )
 
     def __init__(self, llm_instance: Optional[Union["CodeAgent", LLMInterface]] = None):
         """
