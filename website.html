@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jérémy Barande - Photographe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    header {
+      background: url('Drapeau.jpg') center/cover no-repeat;
+      height: 90vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: white;
+      padding: 2rem;
+    }
+    header h1 {
+      font-size: 4rem;
+      margin: 0;
+    }
+    header p {
+      font-size: 1.5rem;
+      margin: 0.5rem 0 0;
+    }
+    nav {
+      background-color: #111;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+    nav a {
+      color: white;
+      margin: 0 1rem;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    section.gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      padding: 2rem;
+    }
+    section.gallery img {
+      width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease;
+    }
+    section.gallery img:hover {
+      transform: scale(1.02);
+    }
+    section.about, section.contact, section.testimonials {
+      padding: 2rem;
+      max-width: 800px;
+      margin: auto;
+    }
+    h2 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .testimonial {
+      font-style: italic;
+      margin: 1rem 0;
+      padding-left: 1rem;
+      border-left: 4px solid #ccc;
+    }
+    .quote-author {
+      text-align: right;
+      font-weight: bold;
+      margin-top: 0.5rem;
+    }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      background-color: #222;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="#gallery">Galerie</a>
+    <a href="#about">À propos</a>
+    <a href="#contact">Contact</a>
+  </nav>
+
+  <header>
+    <h1>Jérémy Barande</h1>
+    <p>Photographe documentaire & événementiel</p>
+  </header>
+
+  <section id="gallery" class="gallery">
+    <img src="defile.jpg" alt="Défilé du 14 juillet">
+    <img src="Forum.jpg" alt="Forum DGA Innovation">
+    <img src="Physique.jpg" alt="Explication au tableau noir">
+    <img src="Sem.jpg" alt="Conférence sur la biodiversité">
+  </section>
+
+  <section id="about" class="about">
+    <h2>À propos</h2>
+    <p>Jérémy Barande est photographe à l'École polytechnique. Il capture des instants uniques lors d'événements scientifiques, académiques et institutionnels. Son travail met en valeur les personnes et les lieux avec sobriété, sensibilité et précision documentaire.</p>
+    <p>Il travaille en collaboration avec des institutions publiques et des entreprises privées, réalisant des portraits, des reportages et des couvertures d'événements majeurs.</p>
+  </section>
+
+  <section class="testimonials">
+    <h2>Témoignages</h2>
+    <div class="testimonial">
+      "Un regard précis, une grande discrétion sur le terrain, et des photos d'une justesse rare."
+      <div class="quote-author">— Responsable communication, X</div>
+    </div>
+    <div class="testimonial">
+      "Ses clichés racontent une histoire, bien au-delà de l'image."
+      <div class="quote-author">— Chargé de projet, Forum DGA</div>
+    </div>
+  </section>
+
+  <section id="contact" class="contact">
+    <h2>Contact</h2>
+    <p>Pour toute demande de collaboration, contactez via sa <a href="https://www.flickr.com/photos/117994717@N06/" target="_blank">galerie Flickr</a>.</p>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 Jérémy Barande. Tous droits réservés.</p>
+  </footer>
+</body>
+</html>
