@@ -190,8 +190,6 @@ Format your response as JSON with this structure:
         "additional_services": []
     }
     
-    @staticmethod
-    def research(llm_instance:Optional[Union["CodeAgent", LLMInterface]],  )
 
     def __init__(self, llm_instance: Optional[Union["CodeAgent", LLMInterface]] = None):
         """
