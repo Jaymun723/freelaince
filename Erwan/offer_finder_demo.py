@@ -131,7 +131,7 @@ def demonstrate_offer_finder():
     
     # Create manager and finder instances
     manager = OfferManager()
-    ANTHROPIC_API_KEY = "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"
+    ANTHROPIC_API_KEY = input("Please provide an api key for claude") 
 
     # Model
     model = LiteLLMModel(
