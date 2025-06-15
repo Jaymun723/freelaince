@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional, Union
 from offer_manager import OfferManager
 from offer_finder import OfferFinder, LLMInterface
 from standard_offer import StandardOffer
+from verification_agent import VerificationAgent
 
 # If smolagents is available
 try:
@@ -20,6 +21,7 @@ class GlobalManager:
     def __init__(self, llm_instance: Optional[Union["CodeAgent", LLMInterface]] = None):
         self.offer_manager = OfferManager()
         self.offer_finder = OfferFinder(llm_instance)
+        self.verificator = VerificationAgent(llm_instance)
 
     def find_offers(self, criteria: Dict[str, Any], personalized: bool = False, user_context: str = "") -> List[StandardOffer]:
         """
@@ -35,12 +37,10 @@ class GlobalManager:
         """
         known_offers = list(self.offer_manager._full_offers.values())
 
-        if personalized:
-            new_offers = self.offer_finder.personalized_search(criteria, known_offers, user_context)
-        else:
-            new_offers = self.offer_finder.free_search(criteria, known_offers)
+        new_offers = self.offer_finder.free_search(criteria, known_offers)
 
         for offer in new_offers:
+            offer = self.verificator.verify_offer(offer)
             self.offer_manager.add_offer(offer)
 
         return new_offers

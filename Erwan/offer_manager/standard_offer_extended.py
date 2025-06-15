@@ -1,5 +1,5 @@
 """
-StandardOffer - Base class for all freelance job offers
+StandardOffer - Base class for all freelance job offers with verification support
 """
 
 from abc import ABC, abstractmethod
@@ -11,7 +11,7 @@ import json
 
 class StandardOffer(ABC):
     """
-    Abstract base class for freelance job offers.
+    Abstract base class for freelance job offers with verification capabilities.
     
     This class defines the common structure and behavior for all types of
     freelance offers while allowing for specific implementations.
@@ -56,6 +56,14 @@ class StandardOffer(ABC):
         self.requirements = requirements
         self.source_url = self._validate_url(source_url) if source_url else None
         self.created_at = datetime.now()
+        
+        # Verification fields
+        self.is_legitimate_job_offer: Optional[bool] = None
+        self.verification_confidence: Optional[float] = None
+        self.verification_notes: Optional[str] = None
+        self.verified_at: Optional[datetime] = None
+        self.original_missing_fields: Optional[Dict[str, bool]] = None
+        self.enhanced_by_verification: bool = False
     
     def _validate_name(self, name: str) -> str:
         """Validate client name is not empty."""
@@ -102,6 +110,83 @@ class StandardOffer(ABC):
         
         raise ValueError("Source URL must be a valid URL")
     
+    def set_verification_result(
+        self, 
+        is_legitimate: bool, 
+        confidence: float, 
+        notes: str = None,
+        missing_fields: Dict[str, bool] = None
+    ):
+        """
+        Set verification results for this offer.
+        
+        Args:
+            is_legitimate: Whether this is a legitimate job offer from an employer
+            confidence: Confidence score (0.0 to 1.0)
+            notes: Additional verification notes
+            missing_fields: Dict indicating which fields were originally missing
+        """
+        self.is_legitimate_job_offer = is_legitimate
+        self.verification_confidence = max(0.0, min(1.0, confidence))  # Clamp to [0,1]
+        self.verification_notes = notes
+        self.verified_at = datetime.now()
+        self.original_missing_fields = missing_fields or {}
+    
+    def enhance_with_verification_data(self, enhanced_data: Dict[str, Any]):
+        """
+        Enhance the offer with additional data found during verification.
+        
+        Args:
+            enhanced_data: Dictionary with enhanced field values
+        """
+        fields_updated = []
+        
+        # Only update fields that were originally missing or incomplete
+        if not self.client_contact and enhanced_data.get('client_contact'):
+            self.client_contact = enhanced_data['client_contact']
+            fields_updated.append('client_contact')
+        
+        if not self.client_company and enhanced_data.get('client_company'):
+            self.client_company = enhanced_data['client_company']
+            fields_updated.append('client_company')
+        
+        if not self.payment_terms and enhanced_data.get('payment_terms'):
+            self.payment_terms = enhanced_data['payment_terms']
+            fields_updated.append('payment_terms')
+        
+        if not self.requirements and enhanced_data.get('requirements'):
+            self.requirements = enhanced_data['requirements']
+            fields_updated.append('requirements')
+        
+        if not self.duration and enhanced_data.get('duration'):
+            self.duration = enhanced_data['duration']
+            fields_updated.append('duration')
+        
+        if fields_updated:
+            self.enhanced_by_verification = True
+            if self.verification_notes:
+                self.verification_notes += f" Enhanced fields: {', '.join(fields_updated)}"
+            else:
+                self.verification_notes = f"Enhanced fields: {', '.join(fields_updated)}"
+    
+    def is_verified(self) -> bool:
+        """Check if this offer has been verified."""
+        return self.is_legitimate_job_offer is not None
+    
+    def is_legitimate(self) -> bool:
+        """Check if this offer is verified as legitimate."""
+        return self.is_legitimate_job_offer is True
+    
+    def get_verification_status(self) -> str:
+        """Get human-readable verification status."""
+        if not self.is_verified():
+            return "Not Verified"
+        elif self.is_legitimate():
+            confidence_pct = int(self.verification_confidence * 100) if self.verification_confidence else 0
+            return f"Verified Legitimate ({confidence_pct}% confidence)"
+        else:
+            return "Verified Not Legitimate"
+    
     @abstractmethod
     def get_offer_type(self) -> str:
         """Return the specific type of this offer."""
@@ -114,19 +199,21 @@ class StandardOffer(ABC):
         Returns:
             Dictionary containing summary information
         """
-        return {
+        summary = {
             "offer_type": self.get_offer_type(),
             "client_name": self.client_name,
             "job_description": self.job_description[:100] + "..." if len(self.job_description) > 100 else self.job_description,
             "date_time": self.date_time.strftime("%Y-%m-%d %H:%M"),
             "location": self.location,
             "payment_terms": self.payment_terms,
-            "source_url": self.source_url
+            "source_url": self.source_url,
+            "verification_status": self.get_verification_status()
         }
+        return summary
     
     def get_full_details(self) -> Dict[str, Any]:
         """
-        Get complete offer details.
+        Get complete offer details including verification information.
         
         Returns:
             Dictionary containing all offer information
@@ -147,7 +234,15 @@ class StandardOffer(ABC):
             },
             "payment_terms": self.payment_terms,
             "source_url": self.source_url,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
+            "verification": {
+                "is_legitimate": self.is_legitimate_job_offer,
+                "confidence": self.verification_confidence,
+                "notes": self.verification_notes,
+                "verified_at": self.verified_at.isoformat() if self.verified_at else None,
+                "enhanced_by_verification": self.enhanced_by_verification,
+                "original_missing_fields": self.original_missing_fields
+            }
         }
         
         # Add specific details from subclasses
@@ -168,8 +263,11 @@ class StandardOffer(ABC):
     
     def __str__(self) -> str:
         """String representation of the offer."""
-        return f"{self.get_offer_type()} Offer - {self.client_name} ({self.date_time.strftime('%Y-%m-%d')})"
+        verification_indicator = ""
+        if self.is_verified():
+            verification_indicator = " ✓" if self.is_legitimate() else " ✗"
+        return f"{self.get_offer_type()} Offer - {self.client_name} ({self.date_time.strftime('%Y-%m-%d')}){verification_indicator}"
     
     def __repr__(self) -> str:
         """Detailed string representation of the offer."""
-        return f"{self.__class__.__name__}(client='{self.client_name}', date='{self.date_time.strftime('%Y-%m-%d %H:%M')}')"
+        return f"{self.__class__.__name__}(client='{self.client_name}', date='{self.date_time.strftime('%Y-%m-%d %H:%M')}', verified={self.is_verified()})"

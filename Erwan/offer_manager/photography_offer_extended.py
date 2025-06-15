@@ -1,10 +1,10 @@
 """
-PhotographyOffer - Specialized offer class for photography jobs
+PhotographyOffer - Specialized offer class for photography jobs with verification support
 """
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from .standard_offer import StandardOffer
+from .standard_offer_extended import StandardOffer
 
 
 class PhotographyOffer(StandardOffer):
@@ -169,6 +169,45 @@ class PhotographyOffer(StandardOffer):
         
         return f"Approximately {estimated_hours} hours"
     
+    def enhance_with_verification_data(self, enhanced_data: Dict[str, Any]):
+        """
+        Enhance the photography offer with additional data found during verification.
+        
+        Args:
+            enhanced_data: Dictionary with enhanced field values
+        """
+        # Call parent method for standard fields
+        super().enhance_with_verification_data(enhanced_data)
+        
+        # Handle photography-specific enhancements
+        fields_updated = []
+        
+        if not self.post_processing_requirements and enhanced_data.get('post_processing_requirements'):
+            self.post_processing_requirements = enhanced_data['post_processing_requirements']
+            fields_updated.append('post_processing_requirements')
+        
+        if not self.delivery_timeline and enhanced_data.get('delivery_timeline'):
+            self.delivery_timeline = enhanced_data['delivery_timeline']
+            fields_updated.append('delivery_timeline')
+        
+        # Add any photography-specific services found
+        additional_services = enhanced_data.get('additional_services', [])
+        if additional_services and isinstance(additional_services, list):
+            for service in additional_services:
+                if service not in self.additional_services:
+                    self.additional_services.append(service)
+                    fields_updated.append(f'additional_service: {service}')
+        
+        if fields_updated:
+            self.enhanced_by_verification = True
+            if self.verification_notes:
+                self.verification_notes += f" Photography enhancements: {', '.join(fields_updated)}"
+            else:
+                self.verification_notes = f"Photography enhancements: {', '.join(fields_updated)}"
+    
     def __str__(self) -> str:
         """String representation of the photography offer."""
-        return f"Photography Offer ({self.event_type.title()}) - {self.client_name} ({self.date_time.strftime('%Y-%m-%d')})"
+        verification_indicator = ""
+        if self.is_verified():
+            verification_indicator = " ✓" if self.is_legitimate() else " ✗"
+        return f"Photography Offer ({self.event_type.title()}) - {self.client_name} ({self.date_time.strftime('%Y-%m-%d')}){verification_indicator}"

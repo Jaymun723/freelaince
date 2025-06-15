@@ -1,6 +1,6 @@
 """
 OfferFinder - Web search and AI-powered offer discovery system using smolagents
-FIXED VERSION: LLMInterface is always available regardless of smolagents
+Updated version with verification and without personalized search
 """
 
 import ast
@@ -9,8 +9,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union, Protocol
 from urllib.parse import urlparse
 import re
-from offer_manager.standard_offer import StandardOffer
-from offer_manager.photography_offer import PhotographyOffer
+from .standard_offer import StandardOffer
+from .photography_offer import PhotographyOffer
 
 # Always define LLMInterface protocol for type hints and compatibility
 class LLMInterface(Protocol):
@@ -34,7 +34,7 @@ class OfferFinder:
     maintaining data integrity by explicitly handling missing information.
     """
     
-    # Prompt templates - easily modifiable constants
+    # Prompt template for free search - easily modifiable constant
     FREE_SEARCH_PROMPT_TEMPLATE = """
 You are an expert freelance job finder. Search for job opportunities matching these criteria:
 
@@ -65,6 +65,7 @@ INSTRUCTIONS:
 
 3. CRITICAL RULES:
    - Always include the exact source URL
+   - Find people who want to hire the freelancer, not freelancer who want to be hired
 
 4. For photography jobs, also extract:
    - Event type (wedding, corporate, portrait, etc.)
@@ -104,75 +105,9 @@ Format your response as JSON with this structure:
 }}
 """
 
-    PERSONALIZED_SEARCH_PROMPT_TEMPLATE = """
-You are an AI assistant helping find personalized freelance opportunities. 
-
-USER CONTEXT:
-{user_context}
-
-BASE CRITERIA:
-- Job Type: {job_type}
-- Location: {location}
-- Additional Preferences: {preferences}
-
-INSTRUCTIONS:
-1. Based on the user context, intelligently search for opportunities that match their:
-   - Experience level and skills
-   - Working style and preferences  
-   - Career goals and interests
-   - Geographic and schedule preferences
-
-2. Look for offers on platforms like:
-   - Upwork, Fiverr, Freelancer
-   - Craigslist, Facebook Marketplace
-   - LinkedIn, Indeed
-   - Specialized job boards
-   - Professional networks
-
-3. Prioritize opportunities that:
-   - Match the user's expertise level
-   - Align with their stated preferences
-   - Offer growth potential
-   - Fit their availability and location
-
-4. For each opportunity, extract information following the same rules as free search:
-   - Only include explicitly stated information
-   - Always include exact source URL
-
-5. Rank opportunities by relevance to user profile
-
-Format your response as JSON with this structure:
-{{
-    "offers": [
-        {{
-            "client_name": "string or NOT_AVAILABLE",
-            "client_contact": "string or NOT_AVAILABLE",
-            "client_company": "string or NOT_AVAILABLE",
-            "job_description": "string or NOT_AVAILABLE",
-            "date_time": "ISO format or NOT_AVAILABLE",
-            "duration": "string or NOT_AVAILABLE",
-            "location": "string or NOT_AVAILABLE",
-            "payment_terms": "string or NOT_AVAILABLE",
-            "requirements": "string or NOT_AVAILABLE",
-            "source_url": "REQUIRED - exact URL",
-            "offer_type": "photography or general",
-            "photography_details": {{
-                "event_type": "string or NOT_AVAILABLE",
-                "photos_expected": "number or NOT_AVAILABLE",
-                "equipment_requirements": ["list or empty"],
-                "post_processing_requirements": "string or NOT_AVAILABLE",
-                "delivery_format": "string or NOT_AVAILABLE",
-                "delivery_timeline": "string or NOT_AVAILABLE",
-                "additional_services": ["list or empty"]
-            }}
-        }}
-    ]
-}}
-"""
-
     MISSING_DATA_DEFAULTS = {
         "client_name": "ERR",
-        "source_url" : "",
+        "source_url": "",
         "client_contact": None,
         "client_company": None,
         "job_description": None,
@@ -189,7 +124,6 @@ Format your response as JSON with this structure:
         "delivery_timeline": None,
         "additional_services": []
     }
-    
 
     def __init__(self, llm_instance: Optional[Union["CodeAgent", LLMInterface]] = None):
         """
@@ -307,51 +241,6 @@ Format your response as JSON with this structure:
             
         except Exception as e:
             self.logger.error(f"Error in free search: {e}")
-            return []
-
-    def personalized_search(
-        self, 
-        base_criteria: Dict[str, Any], 
-        known_offers: List[StandardOffer],
-        user_context: str = ""
-    ) -> List[StandardOffer]:
-        """
-        Perform a personalized search using AI-driven matching.
-        
-        Args:
-            base_criteria: Base search criteria
-            known_offers: List of existing offers to avoid duplicates
-            user_context: User profile and preferences
-            
-        Returns:
-            List of StandardOffer instances found
-        """
-        self.logger.info("Starting personalized search")
-        
-        try:
-            # Extract parameters
-            job_type = base_criteria.get('job_type', 'freelance work')
-            location = base_criteria.get('location', 'remote')
-            preferences = base_criteria.get('preferences', {})
-            
-            # Create personalized prompt
-            prompt = self.PERSONALIZED_SEARCH_PROMPT_TEMPLATE.format(
-                user_context=user_context,
-                job_type=job_type,
-                location=location,
-                preferences=preferences
-            )
-            
-            # Get LLM response
-            response = self._generate_llm_response(prompt)
-            # Parse response and create offers
-            offers = self._parse_llm_response(response, known_offers)
-            
-            self.logger.info(f"Personalized search completed. Found {len(offers)} new offers.")
-            return offers
-            
-        except Exception as e:
-            self.logger.error(f"Error in personalized search: {e}")
             return []
 
     def _parse_llm_response(
@@ -558,33 +447,6 @@ Format your response as JSON with this structure:
             return all([result.scheme, result.netloc])
         except Exception:
             return False
-
-    def _check_duplicate_offers(
-        self, 
-        new_offers: List[StandardOffer], 
-        known_offers: List[StandardOffer]
-    ) -> List[StandardOffer]:
-        """
-        Remove duplicate offers based on URL and content similarity.
-        
-        Args:
-            new_offers: List of newly found offers
-            known_offers: List of existing offers
-            
-        Returns:
-            List of unique offers
-        """
-        unique_offers = []
-        known_urls = {offer.source_url for offer in known_offers if offer.source_url}
-        
-        for offer in new_offers:
-            if offer.source_url not in known_urls:
-                unique_offers.append(offer)
-                known_urls.add(offer.source_url)
-            else:
-                self.logger.info(f"Duplicate offer detected: {offer.source_url}")
-        
-        return unique_offers
 
     def get_search_statistics(self) -> Dict[str, Any]:
         """
