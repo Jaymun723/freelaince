@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Function Test User - Professional Testing Services</title>
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        /* Colors and Variables */
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --light-gray: #f5f6fa;
+            --dark-gray: #2c3e50;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--primary-color);
+            padding: 1rem;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        nav a:hover {
+            color: var(--secondary-color);
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(rgba(44, 62, 80, 0.9), rgba(44, 62, 80, 0.9)), url('https://via.placeholder.com/1920x1080') center/cover;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: white;
+            padding: 2rem;
+        }
+
+        .header-content h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .header-content p {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Sections */
+        section {
+            padding: 5rem 2rem;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        /* About */
+        #about {
+            background: var(--light-gray);
+        }
+
+        /* Services */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .service-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        /* Portfolio */
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .portfolio-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        .portfolio-item img {
+            width: 100%;
+            height: auto;
+        }
+
+        /* Testimonials */
+        #testimonials {
+            background: var(--light-gray);
+        }
+
+        .testimonial-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .testimonial-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Contact */
+        .contact-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        form {
+            display: grid;
+            gap: 1rem;
+        }
+
+        input, textarea {
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: var(--secondary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: var(--primary-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            nav ul {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .header-content h1 {
+                font-size: 2.5rem;
+            }
+
+            section {
+                padding: 3rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="#about">About</a></li>
+            <li><a href="#services">Services</a></li>
+            <li><a href="#portfolio">Portfolio</a></li>
+            <li><a href="#testimonials">Testimonials</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <header>
+        <div class="header-content">
+            <h1>Function Test User</h1>
+            <p>Professional Quality Assurance & Testing Services</p>
+            <a href="#contact" class="btn">Get Started</a>
+        </div>
+    </header>
+
+    <section id="about">
+        <div class="section-title">
+            <h2>About Me</h2>
+        </div>
+        <div class="about-content">
+            <p>With extensive experience in quality assurance and testing, I help businesses ensure their products meet the highest standards of quality and reliability. My comprehensive approach to testing combines technical expertise with analytical thinking to deliver exceptional results.</p>
+        </div>
+    </section>
+
+    <section id="services">
+        <div class="section-title">
+            <h2>Services</h2>
+        </div>
+        <div class="services-grid">
+            <div class="service-card">
+                <h3>Functional Testing</h3>
+                <p>Comprehensive testing to ensure all features work as intended</p>
+            </div>
+            <div class="service-card">
+                <h3>Automated Testing</h3>
+                <p>Efficient test automation for consistent and reliable results</p>
+            </div>
+            <div class="service-card">
+                <h3>Performance Testing</h3>
+                <p>Thorough analysis of system performance under various conditions</p>
+            </div>
+            <div class="service-card">
+                <h3>Security Testing</h3>
+                <p>Identifying vulnerabilities and ensuring robust security measures</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="portfolio">
+        <div class="section-title">
+            <h2>Portfolio</h2>
+        </div>
+        <div class="portfolio-grid">
+            <div class="portfolio-item">
+                <img src="https://via.placeholder.com/400x300" alt="Project 1">
+            </div>
+            <div class="portfolio-item">
+                <img src="https://via.placeholder.com/400x300" alt="Project 2">
+            </div>
+            <div class="portfolio-item">
+                <img src="https://via.placeholder.com/400x300" alt="Project 3">
+            </div>
+        </div>
+    </section>
+
+    <section id="testimonials">
+        <div class="section-title">
+            <h2>Testimonials</h2>
+        </div>
+        <div class="testimonial-grid">
+            <div class="testimonial-card">
+                <p>"Function Test User's attention to detail and thorough testing methodology helped us launch our product with confidence."</p>
+                <h4>- Tech Company CEO</h4>
+            </div>
+            <div class="testimonial-card">
+                <p>"The automated testing solutions implemented saved us countless hours and improved our development workflow."</p>
+                <h4>- Development Team Lead</h4>
+            </div>
+            <div class="testimonial-card">
+                <p>"Professional, efficient, and thorough. Exactly what we needed for our quality assurance process."</p>
+                <h4>- Project Manager</h4>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact">
+        <div class="section-title">
+            <h2>Contact Me</h2>
+        </div>
+        <div class="contact-container">
+            <p>Email: test@function.com</p>
+            <form>
+                <input type="text" placeholder="Your Name" required>
+                <input type="email" placeholder="Your Email" required>
+                <textarea rows="5" placeholder="Your Message" required></textarea>
+                <button type="submit" class="btn">Send Message</button>
+            </form>
+        </div>
+    </section>
+</body>
+</html>
